@@ -72,6 +72,7 @@ tempsend        | download | upload |        |      |       |
 thefilebay      | download | upload |        |      | probe |
 turbobit        | download | upload | delete | list | probe |
 ultramegabit    | download | upload |        |      | probe |
+uploadboy       | download |        |        |      | probe |
 uploadable_ch   | download | upload | delete | list | probe |
 uploadhero      | download | upload | delete | list | probe |
 uploading       | download | upload |        |      | probe |
