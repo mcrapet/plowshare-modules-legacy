@@ -1,5 +1,5 @@
 # Plowshare uploaded.net module
-# Copyright (c) 2011-2014 Plowshare team
+# Copyright (c) 2011-2015 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -200,7 +200,7 @@ uploaded_net_extract_file_id() {
 uploaded_net_download() {
     local -r COOKIE_FILE=$1
     local -r BASE_URL='http://uploaded.net'
-    local URL ACCOUNT PAGE JSON WAIT ERR FILE_ID FILE_NAME FILE_URL
+    local URL ACCOUNT PAGE JSON WAIT ERR FILE_ID FILE_NAME FILE_URL CV SESS
 
     # Uploaded.net redirects all possible urls of a file to the canonical one
     # Note: There can be multiple redirections before the final one
@@ -223,8 +223,31 @@ uploaded_net_download() {
 
     # Note: File owner never needs password and only owner may access private
     # files, so login comes first.
-    if [ -n "$AUTH" ]; then
+    if CV=$(storage_get 'cookie_file'); then
+        echo "$CV" >"$COOKIE_FILE"
+
+        # Check for expired session
+        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/me") || return
+        if ! match '>\(Profile\|Logout\)<' "$PAGE"; then
+            log_debug 'expired session, delete cache entry'
+            storage_set 'cookie_file'
+            echo 1
+            return $ERR_LINK_TEMP_UNAVAILABLE
+        fi
+
+        # Determine account type
+        local TYPE
+        TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 1 <<< "$PAGE") || return
+        ACCOUNT=$(lowercase "$TYPE")
+
+        SESS=$(parse_cookie 'auth' < "$COOKIE_FILE")
+        log_debug "session (cached): '$SESS'"
+    elif [ -n "$AUTH" ]; then
         ACCOUNT=$(uploaded_net_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
+        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
+
+        SESS=$(parse_cookie 'auth' < "$COOKIE_FILE")
+        log_debug "session (new): '$SESS'"
     fi
 
     # Note: Save HTTP headers to catch premium users' "direct downloads"
@@ -388,7 +411,7 @@ uploaded_net_upload() {
     local -r DEST_FILE=$3
     local -r BASE_URL='http://uploaded.net'
     local -r MAX_SIZE=1073741823
-    local PAGE SERVER FILE_ID AUTH_DATA ACCOUNT FOLDER_ID OPT_FOLDER
+    local PAGE SERVER FILE_ID AUTH_DATA ACCOUNT FOLDER_ID OPT_FOLDER CV SESS
 
     # Sanity checks
     [ -n "$AUTH" ] || return $ERR_LINK_NEED_PERMISSIONS
@@ -432,7 +455,32 @@ uploaded_net_upload() {
 
     log_debug "Upload server: $SERVER"
 
-    ACCOUNT=$(uploaded_net_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
+    if CV=$(storage_get 'cookie_file'); then
+        echo "$CV" >"$COOKIE_FILE"
+
+        # Check for expired session
+        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/me") || return
+        if ! match '>\(Profile\|Logout\)<' "$PAGE"; then
+            log_debug 'expired session, delete cache entry'
+            storage_set 'cookie_file'
+            echo 1
+            return $ERR_LINK_TEMP_UNAVAILABLE
+        fi
+
+        # Determine account type
+        local TYPE
+        TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 1 <<< "$PAGE") || return
+        ACCOUNT=$(lowercase "$TYPE")
+
+        SESS=$(parse_cookie 'auth' < "$COOKIE_FILE")
+        log_debug "session (cached): '$SESS'"
+    elif [ -n "$AUTH" ]; then
+        ACCOUNT=$(uploaded_net_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
+        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
+
+        SESS=$(parse_cookie 'auth' < "$COOKIE_FILE")
+        log_debug "session (new): '$SESS'"
+    fi
 
     if [ "$ACCOUNT" != 'premium' ]; then
         local SIZE
