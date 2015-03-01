@@ -1,6 +1,6 @@
 # Plowshare 1fichier.com module
 # Copyright (c) 2011 halfman <Pulpan3@gmail.com>
-# Copyright (c) 2012-2014 Plowshare team
+# Copyright (c) 2012-2015 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -21,7 +21,8 @@ MODULE_1FICHIER_REGEXP_URL='https\?://\(.*\.\)\?\(1fichier\.\(com\|net\|org\|fr\
 
 MODULE_1FICHIER_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,Premium account
-LINK_PASSWORD,p,link-password,S=PASSWORD,Used in password-protected files"
+LINK_PASSWORD,p,link-password,S=PASSWORD,Used in password-protected files
+RESTRICT,,restrictip,,Restrict login session to my IP address"
 MODULE_1FICHIER_DOWNLOAD_RESUME=yes
 MODULE_1FICHIER_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
 MODULE_1FICHIER_DOWNLOAD_SUCCESSIVE_INTERVAL=
@@ -31,7 +32,8 @@ AUTH,a,auth,a=USER:PASSWORD,User account
 LINK_PASSWORD,p,link-password,S=PASSWORD,Protect a link with a password
 MESSAGE,d,message,S=MESSAGE,Set file message (is send with notification email)
 DOMAIN,,domain,N=ID,You can set domain ID to upload (ID can be found at http://www.1fichier.com/en/api/web.html)
-TOEMAIL,,email-to,e=EMAIL,<To> field for notification email"
+TOEMAIL,,email-to,e=EMAIL,<To> field for notification email
+RESTRICT,,restrictip,,Restrict login session to my IP address"
 MODULE_1FICHIER_UPLOAD_REMOTE_SUPPORT=no
 
 MODULE_1FICHIER_LIST_OPTIONS=""
@@ -47,7 +49,12 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r BASE_URL=$3
     local LOGIN_DATA LOGIN_RESULT SID
 
-    LOGIN_DATA='mail=$USER&pass=$PASSWORD&lt=on&secure=on&Login=Login'
+    # Long session                            lt=on
+    # Restrict the session to my IP address   purge=on
+    # Purge old sessions                      restrict=on
+    LOGIN_DATA='mail=$USER&pass=$PASSWORD&lt=on&purge=on&secure=on&Login=Login'
+    [ -z "$RESTRICT" ] || LOGIN_DATA="$LOGIN_DATA&restrict=on"
+
     LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
         "$BASE_URL/login.pl") || return
 
@@ -88,15 +95,33 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
 1fichier_download() {
     local -r COOKIE_FILE=$1
     local URL=$(replace 'http://' 'https://' <<< "$2")
-    local FID PAGE FILE_URL FILE_NAME WAIT
+    local FID PAGE FILE_URL FILE_NAME WAIT CV SESS
 
     FID=$(parse_quiet . '://\([[:alnum:]]*\)\.' <<< "$URL")
     if [ -n "$FID" ] && [ "$FID" != '1fichier' ]; then
         URL="https://1fichier.com/?$FID"
     fi
 
-    if [ -n "$AUTH" ]; then
+    if CV=$(storage_get 'cookie_file'); then
+        echo "$CV" >"$COOKIE_FILE"
+
+        # Check for expired session
+        PAGE=$(curl -b "$COOKIE_FILE" -b LG=en "https://1fichier.com/console/index.pl") || return
+        if ! match '>[[:space:]]*\(My files\|Logout\)<' "$PAGE"; then
+            log_debug 'expired session, delete cache entry'
+            storage_set 'cookie_file'
+            echo 1
+            return $ERR_LINK_TEMP_UNAVAILABLE
+        fi
+
+        SESS=$(parse_cookie 'SID' < "$COOKIE_FILE")
+        log_debug "session (cached): '$SESS'"
+    elif [ -n "$AUTH" ]; then
         1fichier_login "$AUTH" "$COOKIE_FILE" 'https://1fichier.com' || return
+        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
+
+        SESS=$(parse_cookie 'SID' < "$COOKIE_FILE")
+        log_debug "session (new): '$SESS'"
     fi
 
     FILE_URL=$(curl --head -b "$COOKIE_FILE" "$URL" | \
@@ -189,9 +214,27 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r UPLOADURL='https://upload.1fichier.com'
     local LOGIN_DATA S_ID RESPONSE DOWNLOAD_ID REMOVE_ID DOMAIN_ID
 
+    if CV=$(storage_get 'cookie_file'); then
+        echo "$CV" >"$COOKIE_FILE"
 
-    if [ -n "$AUTH" ]; then
+        # Check for expired session
+        PAGE=$(curl -b "$COOKIE_FILE" -b LG=en "https://1fichier.com/console/index.pl") || return
+        echo "$PAGE" >a
+        if ! match '>[[:space:]]*\(My files\|Logout\)<' "$PAGE"; then
+            log_debug 'expired session, delete cache entry'
+            storage_set 'cookie_file'
+            echo 1
+            return $ERR_LINK_TEMP_UNAVAILABLE
+        fi
+
+        SESS=$(parse_cookie 'SID' < "$COOKIE_FILE")
+        log_debug "session (cached): '$SESS'"
+    elif [ -n "$AUTH" ]; then
         1fichier_login "$AUTH" "$COOKIE_FILE" 'https://1fichier.com' || return
+        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
+
+        SESS=$(parse_cookie 'SID' < "$COOKIE_FILE")
+        log_debug "session (new): '$SESS'"
     fi
 
     S_ID=$(random ll 10)
