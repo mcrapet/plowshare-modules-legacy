@@ -94,6 +94,20 @@ uploaded_net_switch_lang() {
     curl -b "$1" -o /dev/null "$2/language/en" || return
 }
 
+# Get canonical URL
+# $1: input url
+# stdout: rebased URL
+uploaded_net_get_canonical_url() {
+  local U REDIR
+    U=$(replace '://ul.to/' '://uploaded.net/file/' <<< "$1")
+    REDIR=$(curl --head "$U" | grep_http_header_location_quiet)
+    if [ -n "$REDIR" ] && ! match '/dl/' "$REDIR"; then
+        echo "$REDIR"
+    else
+        echo "$U"
+    fi
+}
+
 # Simple and limited parsing of flawed JSON
 #
 # Notes:
@@ -200,12 +214,9 @@ uploaded_net_extract_file_id() {
 uploaded_net_download() {
     local -r COOKIE_FILE=$1
     local -r BASE_URL='http://uploaded.net'
-    local URL ACCOUNT PAGE JSON WAIT ERR FILE_ID FILE_NAME FILE_URL CV SESS
+    local URL REDIR_URL ACCOUNT PAGE JSON WAIT ERR FILE_ID FILE_NAME FILE_URL CV SESS
 
-    # Uploaded.net redirects all possible urls of a file to the canonical one
-    # Note: There can be multiple redirections before the final one
-    URL=$(curl -I -L "$2" | grep_http_header_location_quiet | last_line) || return
-    [ -n "$URL" ] || URL=$2
+    URL=$(uploaded_net_get_canonical_url "$2") || return
 
     # Recognize folders
     if match "$BASE_URL/folder/" "$URL"; then
@@ -213,10 +224,23 @@ uploaded_net_download() {
         return $ERR_FATAL
     fi
 
-    # Page not found
-    # The requested file isn't available anymore!
-    if match "$BASE_URL/\(404\|410\)" "$URL"; then
-        return $ERR_LINK_DEAD
+    REDIR_URL=$(curl --head "$URL" | grep_http_header_location_quiet)
+    if [ -n "$REDIR_URL" ]; then
+        # Check for direct download
+        if match '/dl/' "$REDIR_URL"; then
+            FILE_NAME=$(curl "$URL/status" | first_line)
+
+            echo "$REDIR_URL"
+            echo "$FILE_NAME"
+            return 0
+
+        # Page not found
+        # The requested file isn't available anymore!
+        elif match "$BASE_URL/\(404\|410\)" "$REDIR_URL"; then
+            return $ERR_LINK_DEAD
+        else
+            log_error "remote suspicious redirection: $REDIR_URL"
+        fi
     fi
 
     uploaded_net_switch_lang "$COOKIE_FILE" "$BASE_URL" || return
@@ -252,6 +276,8 @@ uploaded_net_download() {
 
     # Note: Save HTTP headers to catch premium users' "direct downloads"
     PAGE=$(curl -i -b "$COOKIE_FILE" "$URL") || return
+echo "$PAGE" >a
+return 1
 
     # Check for files that need a password
     if match '<h2>Authentification</h2>' "$PAGE"; then
@@ -558,9 +584,7 @@ uploaded_net_delete() {
 
     [ -n "$AUTH" ] || return $ERR_LINK_NEED_PERMISSIONS
 
-    # Get canonical URL
-    URL=$(curl -I -L "$2" | grep_http_header_location_quiet | last_line) || return
-    [ -n "$URL" ] || URL=$2
+    URL=$(uploaded_net_get_canonical_url "$2") || return
 
     # Recognize folders
     if match "$BASE_URL/folder/" "$URL"; then
@@ -616,13 +640,9 @@ uploaded_net_list() {
 uploaded_net_probe() {
     local -r REQ_IN=$3
     local -r BASE_URL='http://uploaded.net'
-    local URL PAGE REQ_OUT FILE_ID FILE_SIZE
+    local URL REDIR_URL PAGE REQ_OUT FILE_ID FILE_SIZE
 
-    # Uploaded.net redirects all possible urls of a file to the canonical one
-    # Note: There can be multiple redirections before the final one
-    URL=$(curl --head --location "$2" | grep_http_header_location_quiet | \
-        last_line) || return
-    [ -n "$URL" ] || URL=$2
+    URL=$(uploaded_net_get_canonical_url "$2") || return
 
     # Page not found
     # The requested file isn't available anymore!
