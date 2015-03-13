@@ -258,7 +258,7 @@ filecloud_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DEST_FILE=$3
-    local -r MAX_SIZE=2097152000 # 2000 MiB
+    local -r MAX_SIZE=10485760000 # 10000 MiB
     local -r BASE_URL='http://filecloud.io'
 
     local PAGE UP_URL UKEY TAGS_ID STAT ERROR APIKEY_ENC
