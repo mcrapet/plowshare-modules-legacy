@@ -276,8 +276,6 @@ uploaded_net_download() {
 
     # Note: Save HTTP headers to catch premium users' "direct downloads"
     PAGE=$(curl -i -b "$COOKIE_FILE" "$URL") || return
-echo "$PAGE" >a
-return 1
 
     # Check for files that need a password
     if match '<h2>Authentification</h2>' "$PAGE"; then
