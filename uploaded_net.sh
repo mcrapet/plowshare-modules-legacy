@@ -98,8 +98,9 @@ uploaded_net_switch_lang() {
 # $1: input url
 # stdout: rebased URL
 uploaded_net_get_canonical_url() {
-  local U REDIR
-    U=$(replace '://ul.to/' '://uploaded.net/file/' <<< "$1")
+    local U REDIR
+    U=$(replace '://ul.to/file/' '://uploaded.net/file/' <<< "$1")
+    U=$(replace '://ul.to/' '://uploaded.net/file/' <<< "$U")
     REDIR=$(curl --head "$U" | grep_http_header_location_quiet)
     if [ -n "$REDIR" ] && ! match '/dl/' "$REDIR"; then
         echo "$REDIR"
@@ -657,6 +658,11 @@ uploaded_net_probe() {
     if [[ $REQ_IN = *s* ]]; then
         FILE_SIZE=$(last_line <<< "$PAGE" | replace_all '.' '' | replace_all ',' '.') \
             && translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+    fi
+
+    if [[ $REQ_IN = *v* ]]; then
+        echo "$URL"
+        REQ_OUT="${REQ_OUT}v"
     fi
 
     echo $REQ_OUT
