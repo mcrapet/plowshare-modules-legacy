@@ -162,7 +162,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
 
     # Warning ! Without Premium, you must wait between downloads.<br/>You must wait 9 minutes</div>
     elif match 'Warning ! Without Premium,' "$PAGE"; then
-        WAIT=$(parse 'Warning ! Without' 'You must wait \([[:digit:]]\+\) minute' <<< "$PAGE")
+        WAIT=$(parse 'Warning ! Without' 'You must wait \([[:digit:]]\+\) minute' 1 <<< "$PAGE") || WAIT=1
         echo $((WAIT * 60))
         return $ERR_LINK_TEMP_UNAVAILABLE
 
