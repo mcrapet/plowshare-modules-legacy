@@ -1,5 +1,5 @@
 # Plowshare uptobox.com module
-# Copyright (c) 2012-2014 Plowshare team
+# Copyright (c) 2012-2015 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -137,7 +137,8 @@ uptobox_download() {
     fi
 
     # Send (post) form
-    FORM_HTML=$(grep_form_by_order "$PAGE") || return
+    # FIXME later: fname & file_size_real
+    FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
     FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
