@@ -347,7 +347,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        if [[ $FILE_NALE ]]; then
+        if [[ $FILE_NAME ]]; then
             echo "$FILE_NAME"
             REQ_OUT="${REQ_OUT}f"
         else
