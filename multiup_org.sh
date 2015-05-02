@@ -63,11 +63,12 @@ multiup_org_upload() {
     local USER PASSWORD USER_ID JSON ERR SERVER H FORM_FIELDS
     local -a H1 H2
 
-    [ -n "$AUTH_FREE" ] || return $ERR_LINK_NEED_PERMISSIONS
-    split_auth "$AUTH_FREE" USER PASSWORD || return
+    if [ -n "$AUTH_FREE" ]; then
+        split_auth "$AUTH_FREE" USER PASSWORD || return
 
-    USER_ID=$(multiup_org_login "$USER" "$PASSWORD" "$API_URL") || return
-    log_debug "uid: '$USER_ID'"
+        USER_ID=$(multiup_org_login "$USER" "$PASSWORD" "$API_URL") || return
+        log_debug "uid: '$USER_ID'"
+    fi
 
     # Get fastest server
     JSON=$(curl "$API_URL/get-fastest-server") || return
