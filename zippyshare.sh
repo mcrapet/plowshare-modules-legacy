@@ -67,7 +67,7 @@ zippyshare_login() {
 zippyshare_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
-    local PAGE FILE_URL FILE_NAME PART_URL CONTENT JS FUNC N
+    local PAGE FILE_URL FILE_NAME PART_URL CONTENT JS FUNC N OMG
 
     # JSESSIONID required
     PAGE=$(curl -L -c "$COOKIE_FILE" -b 'ziplocale=en' "$URL") || return
@@ -145,6 +145,9 @@ zippyshare_download() {
           /^<script type="text\/javascript">/,/^<\/script>/{/^</!p}
           }' <<< "$PAGE")
 
+    # <span id="omg" class="2" style="display:none;"></span>
+    OMG=$(parse_attr 'id="omg"' class <<< "$PAGE")
+
     PART_URL=$(echo "var elts = new Array();
         var document = {
           getElementById: function(id) {
@@ -153,32 +156,11 @@ zippyshare_download() {
           }
         };
 
-        var curobj;
-        evt = {
-          originalEvent: 1
-        }
+        omgobj = {
+          getAttribute: function(attr) { return $OMG; },
+        };
 
-        mouseevent = function(fnt) {
-          fnt.apply(this,[evt]);
-        }
-        attr = function(attributeName, value) {
-          if (attributeName === 'href') {
-            document.getElementById(curobj.substr(1)).href = value;
-          }
-        }
-        \$ = function(obj) {
-          curobj=obj;
-          return {
-            ready: mouseevent,
-            mouseenter: mouseevent,
-            mouseover: mouseevent,
-            attr: attr
-          };
-        }
-
-        delete(java);
-        var EnvJs = true;
-
+        elts['omg'] = omgobj;
         $JS
         print(elts['fimage'].href);" | javascript) || return
 
