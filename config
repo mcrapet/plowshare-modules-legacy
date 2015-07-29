@@ -10,6 +10,7 @@ bayfiles        | download | upload | delete |      | probe |
 bayimg          | download | upload | delete |      | probe |
 billionuploads  | download | upload |        |      | probe |
 bitshare        | download | upload | delete |      | probe |
+catshare        | download |        |        |      | probe |
 chomikuj        | download | upload |        | list | probe |
 cramit          | download | upload | delete | list | probe |
 crocko          | download | upload |        | list | probe |
@@ -57,6 +58,7 @@ netkups         | download | upload |        |      | probe |
 netload_in      | download | upload |        | list | probe |
 nowdownload_co  | download | upload |        |      | probe |
 oboom           | download | upload |        | list | probe |
+openload_io     | download |        |        |      | probe |
 pastebin        |          |        |        | list |       |
 promptfile      | download |        |        |      | probe |
 rapidgator      | download | upload | delete | list | probe |
