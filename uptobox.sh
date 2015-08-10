@@ -37,17 +37,19 @@ MODULE_UPTOBOX_PROBE_OPTIONS=""
 uptobox_login() {
     local AUTH=$1
     local COOKIE_FILE=$2
-    local BASE_URL=$3
+    local POST_URL="$3/logarithme"
 
-    local LOGIN_DATA LOGIN_RESULT NAME ERR
+    local LOGIN_DATA LOGIN_RESULT SID ERR
 
     LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
-    LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$BASE_URL") || return
+    LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$POST_URL") || return
 
-    # Set-Cookie: login xfss
-    NAME=$(parse_cookie_quiet 'login' < "$COOKIE_FILE")
-    if [ -n "$NAME" ]; then
-        log_debug "Successfully logged in as $NAME member"
+    # {"success" : "OK", "msg" : "please wait..."}
+
+    # Set-Cookie: xfss
+    SID=$(parse_cookie_quiet 'xfss' < "$COOKIE_FILE")
+    if [ -n "$SID" ]; then
+        log_debug 'Successfully logged in'
         return 0
     fi
 
@@ -105,7 +107,7 @@ uptobox_download() {
     local FORM_HTML FORM_OP FORM_USR FORM_ID FORM_FNAME FORM_RAND FORM_METHOD FORM_DD
 
     if [ -n "$AUTH" ]; then
-        uptobox_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
+        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://login.uptobox.com' || return
 
         # Distinguish acount type (free or premium)
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
@@ -137,7 +139,7 @@ uptobox_download() {
     fi
 
     # Send (post) form
-    # FIXME later: fname & file_size_real
+    # FIXME later: fname & file_size_real
     FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
@@ -229,6 +231,15 @@ uptobox_download() {
            captcha_ack $CAPTCHA_ID
            log_debug 'Correct captcha'
        fi
+    elif match '<p class="err">' "$PAGE"; then
+        local ERR=$(parse_tag 'class="err">' p <<< "$PAGE")
+        if match 'Skipped countdown' "$ERR"; then
+            # Can do a retry
+            log_debug "Remote error: $ERR"
+            return $ERR_NETWORK
+        fi
+        log_error "Unexpected remote error: $ERR"
+        return $ERR_FATAL
     fi
 
     parse 'start your download' 'href="\([^"]\+\)"' -2 <<< "$PAGE" || return
@@ -251,7 +262,7 @@ uptobox_upload() {
     local FORM_FN FORM_ST FORM_OP
 
     if [ -n "$AUTH" ]; then
-        uptobox_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
+        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://login.uptobox.com' || return
     fi
 
     PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
