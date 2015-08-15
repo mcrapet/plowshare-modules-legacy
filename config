@@ -64,6 +64,7 @@ promptfile      | download |        |        |      | probe |
 rapidgator      | download | upload | delete | list | probe |
 rapidshare      | download | upload | delete |      | probe |
 rghost          | download | upload |        |      | probe |
+rockfile_eu     |          | upload |        |      |       |
 ryushare        | download | upload |        |      | probe |
 sendspace       | download | upload | delete | list | probe |
 sharebeast      | download | upload | delete |      | probe |
