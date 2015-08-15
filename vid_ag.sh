@@ -54,7 +54,7 @@ vid_ag_login() {
 # $1: cookie file
 # $2: input file (with full path)
 # $3: remote filename
-# stdout: download link + delete link
+# stdout: download link
 vid_ag_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
@@ -82,7 +82,7 @@ vid_ag_upload() {
         # Check for expired session
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
         if ! match '>\(Username\|Account balance\):<' "$PAGE"; then
-            log_debug 'expired session, delete cache entry'
+            log_error 'Expired session, delete cache entry'
             storage_set 'cookie_file'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE
