@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_RGHOST_REGEXP_URL='https\?://\(www\.\)\?rghost\.net/'
+MODULE_RGHOST_REGEXP_URL='https\?://\(www\.\)\?rghost\.\(net\|ru\)/'
 
 MODULE_RGHOST_DOWNLOAD_OPTIONS="
 LINK_PASSWORD,p,link-password,S=PASSWORD,Used in password-protected files"
