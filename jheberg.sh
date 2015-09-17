@@ -34,7 +34,7 @@ jheberg_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r API_URL='http://www.jheberg.net/api/'
+    local -r API_URL='http://www.jheberg.net/api'
     local PAGE UPLOAD_URL JSON USER PASSWORD
 
     # Note: official API does not allow hoster selection (yet).
@@ -72,7 +72,7 @@ jheberg_upload() {
 # stdout: list of links
 jheberg_list() {
     local -r URL=${1/\/captcha\///download/}
-    local -r BASE_URL='http://jheberg.net'
+    local -r BASE_URL='http://www.jheberg.net'
     local JSON NAMES DL_ID URL2 HOSTER
 
     JSON=$(curl --get --data "id=$(uri_encode_strict <<< "$URL")" \
@@ -123,7 +123,7 @@ jheberg_probe() {
     local JSON REQ_OUT FILE_SIZE
 
     JSON=$(curl --get --data "id=$(uri_encode_strict <<< "$URL")" \
-        "http://jheberg.net/api/verify/file/") || return
+        "http://www.jheberg.net/api/verify/file/") || return
 
     if [ -z "$JSON" ] || match '^<!DOCTYPE[[:space:]]' "$JSON"; then
         return $ERR_LINK_DEAD
