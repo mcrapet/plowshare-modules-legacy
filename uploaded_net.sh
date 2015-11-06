@@ -254,7 +254,7 @@ uploaded_net_download() {
         # Check for expired session
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/me") || return
         if ! match '>\(Profile\|Logout\)<' "$PAGE"; then
-            log_debug 'expired session, delete cache entry'
+            log_error 'Expired session, delete cache entry'
             storage_set 'cookie_file'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE

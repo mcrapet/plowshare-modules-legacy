@@ -64,6 +64,7 @@ promptfile      | download |        |        |      | probe |
 rapidgator      | download | upload | delete | list | probe |
 rapidshare      | download | upload | delete |      | probe |
 rghost          | download | upload |        |      | probe |
+rockfile_eu     |          | upload |        |      |       |
 ryushare        | download | upload |        |      | probe |
 sendspace       | download | upload | delete | list | probe |
 sharebeast      | download | upload | delete |      | probe |
@@ -74,6 +75,7 @@ tempsend        | download | upload |        |      |       |
 thefilebay      | download | upload |        |      | probe |
 turbobit        | download | upload | delete | list | probe |
 ultramegabit    | download | upload |        |      | probe |
+uplea           | download |        |        |      | probe |
 uploadboy       | download |        |        |      | probe |
 uploadable_ch   | download | upload | delete | list | probe |
 uploadhero      | download | upload | delete | list | probe |
@@ -82,6 +84,7 @@ uploaded_net    | download | upload | delete | list | probe |
 upstore         | download | upload |        |      | probe |
 uptobox         | download | upload |        |      | probe |
 vidzi_tv        |          | upload |        |      |       |
+vid_ag          |          | upload |        |      |       |
 yourvideohost   | download |        |        |      | probe |
 zalaa           | download | upload |        | list | probe |
 ziddu           | download | upload |        |      | probe |

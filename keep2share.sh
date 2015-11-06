@@ -96,7 +96,7 @@ keep2share_download() {
         # {"status":"success","code":200,"message":"Test was successful!"}
         # {"status":"error","code":403,"message":"Authorization session was expired"}
         if ! keep2share_status "$JSON"; then
-            log_debug 'expired token, delete cache entry'
+            log_error 'Expired token, delete cache entry'
             storage_set 'token'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE
@@ -275,7 +275,7 @@ keep2share_upload() {
         # {"status":"success","code":200,"message":"Test was successful!"}
         # {"status":"error","code":403,"message":"Authorization session was expired"}
         if ! keep2share_status "$JSON"; then
-            log_debug 'expired token, delete cache entry'
+            log_error 'Expired token, delete cache entry'
             storage_set 'token'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE

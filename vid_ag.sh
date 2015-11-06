@@ -1,5 +1,5 @@
-# Plowshare Vidzi.Tv module
-# Copyright (c) 2014 Plowshare team
+# Plowshare Vid.ag module
+# Copyright (c) 2015 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -16,28 +16,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_VIDZI_TV_REGEXP_URL='https\?://\(www\.\)\?vidzi\.tv/'
+MODULE_VID_AG_REGEXP_URL='https\?://\(www\.\)\?vid\.ag/'
 
-MODULE_VIDZI_TV_UPLOAD_OPTIONS="
+MODULE_VID_AG_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account (mandatory)
 DESCRIPTION,d,description,S=DESCRIPTION,Set file description
 PRIVATE_FILE,,private,,Mark file for personal use only
 TAGS,,tags,l=LIST,Provide list of tags (comma separated)
 TITLE,,title,s=TITLE,Set file title"
-MODULE_VIDZI_TV_UPLOAD_REMOTE_SUPPORT=no
+MODULE_VID_AG_UPLOAD_REMOTE_SUPPORT=no
 
 # Static function. Proceed with login
 # $1: credentials string
 # $2: cookie file
 # $3: base url
-vidzi_tv_login() {
+vid_ag_login() {
     local AUTH=$1
     local COOKIE_FILE=$2
     local BASE_URL=$3
 
     local LOGIN_DATA LOGIN_RESULT NAME ERR
 
-    LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
+    LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD&btn=Enter'
     LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$BASE_URL") || return
 
     # Set-Cookie: login xfsts
@@ -54,16 +54,27 @@ vidzi_tv_login() {
 # $1: cookie file
 # $2: input file (with full path)
 # $3: remote filename
-# stdout: download link + delete link
-vidzi_tv_upload() {
+# stdout: download link
+vid_ag_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://vidzi.tv'
+    local -r BASE_URL='http://vid.ag'
 
-    local CV PAGE SESS USER_TYPE UPLOAD_ID TAGS_STR
-    local FORM_HTML FORM_ACTION FORM_UTYPE FORM_SESS FORM_SRV_TMP FORM_SRV_ID FORM_DSK_ID FORM_BUTTON
+    local CV PAGE SESS UPLOAD_ID TAGS_STR
+    local FORM_HTML FORM_ACTION FORM_UTYPE FORM_SESS FORM_SRV_ID FORM_DSK_ID
     local FORM_FN FORM_ST FORM_OP
+
+    # Check for allowed file extensions
+    if [ "${DESTFILE##*.}" = "$DESTFILE" ]; then
+        log_error 'Filename has no extension. It is not allowed by hoster, you must specify video file.'
+        return $ERR_BAD_COMMAND_LINE
+    elif ! match '\.\(avi\|mkv\|mpg\|mpeg\|vob\|wmv\|flv\|mp4\|mov\|m2v\|divx\|xvid\|3gp\|webm\|og[vg]\)$' \
+        "$DESTFILE"; then
+        log_error '*** File extension is checked by hoster. There is a restricted "allowed list", see hoster.'
+        log_debug '*** Allowed list (part): 3gp avi divx flv m2v mkv mov mp4 mpeg mpg ogg ogv vob webm wmv.'
+        return $ERR_BAD_COMMAND_LINE
+    fi
 
     if CV=$(storage_get 'cookie_file'); then
         echo "$CV" >"$COOKIE_FILE"
@@ -80,7 +91,7 @@ vidzi_tv_upload() {
         SESS=$(parse_cookie 'xfsts' < "$COOKIE_FILE")
         log_debug "session (cached): '$SESS'"
     elif [ -n "$AUTH" ]; then
-        vidzi_tv_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
+        vid_ag_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
         storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
 
         SESS=$(parse_cookie 'xfsts' < "$COOKIE_FILE")
@@ -92,16 +103,10 @@ vidzi_tv_upload() {
     PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=upload") || return
     FORM_HTML=$(grep_form_by_name "$PAGE" 'file') || return
     FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
-    FORM_UTYPE=$(parse_form_input_by_name 'upload_type' <<< "$PAGE") || return
     FORM_SESS=$(parse_form_input_by_name_quiet 'sess_id' <<< "$PAGE")
-    FORM_SRV_TMP=$(parse_form_input_by_name 'srv_tmp_url' <<< "$PAGE") || return
     FORM_SRV_ID=$(parse_form_input_by_name 'srv_id' <<< "$PAGE") || return
     FORM_DSK_ID=$(parse_form_input_by_name 'disk_id' <<< "$PAGE") || return
-    FORM_BUTTON=$(parse_form_input_by_name 'submit_btn' <<< "$PAGE") || return
-
-    # "reg"
-    USER_TYPE=$(parse 'var utype' "='\([^']*\)" <<< "$PAGE") || return
-    log_debug "User type: '$USER_TYPE'"
+    FORM_UTYPE=$(parse_form_input_by_name 'utype' <<< "$PAGE") || return
 
     TAGS_STR=''
     if [ "${#TAGS[@]}" -gt 0 ]; then
@@ -118,9 +123,8 @@ vidzi_tv_upload() {
 
     UPLOAD_ID=$(random dec 12) || return
     PAGE=$(curl_with_log \
-        -F "upload_type=$FORM_UTYPE" \
+        -F "utype=$FORM_UTYPE" \
         -F "sess_id=$FORM_SESS" \
-        -F "srv_tmp_url=$FORM_TMP_SRV" \
         -F "srv_id=$FORM_SRV_ID" \
         -F "disk_id=$FORM_DSK_ID" \
         -F "file=@$FILE;filename=$DESTFILE" \
@@ -130,8 +134,7 @@ vidzi_tv_upload() {
         -F "file_category=0" \
         -F "file_public=$PRIVATE_FILE" \
         -F 'tos=1' \
-        --form-string "submit_btn=$FORM_BUTTON" \
-        "${FORM_ACTION}${UPLOAD_ID}&utype=${USER_TYPE}&disk_id=${FORM_DSK_ID}" | break_html_lines) || return
+        "${FORM_ACTION}${UPLOAD_ID}&disk_id=${FORM_DSK_ID}" | break_html_lines) || return
 
     FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
     FORM_FN=$(parse_tag "name='fn'" textarea <<< "$PAGE") || return

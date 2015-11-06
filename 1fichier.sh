@@ -108,7 +108,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         # Check for expired session
         PAGE=$(curl -b "$COOKIE_FILE" -b LG=en "https://1fichier.com/console/index.pl") || return
         if ! match '>[[:space:]]*\(My files\|Logout\)<' "$PAGE"; then
-            log_debug 'expired session, delete cache entry'
+            log_error 'Expired session, delete cache entry'
             storage_set 'cookie_file'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE
@@ -221,7 +221,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         PAGE=$(curl -b "$COOKIE_FILE" -b LG=en "https://1fichier.com/console/index.pl") || return
         echo "$PAGE" >a
         if ! match '>[[:space:]]*\(My files\|Logout\)<' "$PAGE"; then
-            log_debug 'expired session, delete cache entry'
+            log_error 'Expired session, delete cache entry'
             storage_set 'cookie_file'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE

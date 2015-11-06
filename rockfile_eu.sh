@@ -1,5 +1,5 @@
-# Plowshare Vidzi.Tv module
-# Copyright (c) 2014 Plowshare team
+# Plowshare Rockfile.eu module
+# Copyright (c) 2015 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -16,21 +16,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_VIDZI_TV_REGEXP_URL='https\?://\(www\.\)\?vidzi\.tv/'
+MODULE_ROCKFILE_EU_REGEXP_URL='https\?://\(www\.\)\?rockfile\.eu/'
 
-MODULE_VIDZI_TV_UPLOAD_OPTIONS="
+MODULE_ROCKFILE_EU_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account (mandatory)
 DESCRIPTION,d,description,S=DESCRIPTION,Set file description
-PRIVATE_FILE,,private,,Mark file for personal use only
-TAGS,,tags,l=LIST,Provide list of tags (comma separated)
-TITLE,,title,s=TITLE,Set file title"
-MODULE_VIDZI_TV_UPLOAD_REMOTE_SUPPORT=no
+LINK_PASSWORD,p,link-password,S=PASSWORD,Protect a link with a password
+TOEMAIL,,email-to,e=EMAIL,<To> field for notification email"
+MODULE_ROCKFILE_EU_UPLOAD_REMOTE_SUPPORT=no
 
 # Static function. Proceed with login
 # $1: credentials string
 # $2: cookie file
 # $3: base url
-vidzi_tv_login() {
+rockfile_eu_login() {
     local AUTH=$1
     local COOKIE_FILE=$2
     local BASE_URL=$3
@@ -40,7 +39,7 @@ vidzi_tv_login() {
     LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
     LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$BASE_URL") || return
 
-    # Set-Cookie: login xfsts
+    # Set-Cookie: login xfss
     NAME=$(parse_cookie_quiet 'login' < "$COOKIE_FILE")
     if [ -n "$NAME" ]; then
         log_debug "Successfully logged in as $NAME member"
@@ -50,88 +49,69 @@ vidzi_tv_login() {
     return $ERR_LOGIN_FAILED
 }
 
-# Upload a file to vidzi.tv
+# Upload a file to rockfile.eu
 # $1: cookie file
 # $2: input file (with full path)
 # $3: remote filename
 # stdout: download link + delete link
-vidzi_tv_upload() {
+rockfile_eu_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://vidzi.tv'
+    local -r BASE_URL='https://rockfile.eu'
 
     local CV PAGE SESS USER_TYPE UPLOAD_ID TAGS_STR
-    local FORM_HTML FORM_ACTION FORM_UTYPE FORM_SESS FORM_SRV_TMP FORM_SRV_ID FORM_DSK_ID FORM_BUTTON
+    local FORM_HTML FORM_ACTION FORM_UTYPE FORM_SESS FORM_SRV_TMP FORM_BUTTON
     local FORM_FN FORM_ST FORM_OP
 
     if CV=$(storage_get 'cookie_file'); then
         echo "$CV" >"$COOKIE_FILE"
 
         # Check for expired session
-        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
-        if ! match '>\(Username\|Account balance\):<' "$PAGE"; then
+        PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL/account") || return
+        if ! match '\("#accountconfig"\|>Used Space Bar<\)' "$PAGE"; then
             log_error 'Expired session, delete cache entry'
             storage_set 'cookie_file'
             echo 1
             return $ERR_LINK_TEMP_UNAVAILABLE
         fi
 
-        SESS=$(parse_cookie 'xfsts' < "$COOKIE_FILE")
+        SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
         log_debug "session (cached): '$SESS'"
     elif [ -n "$AUTH" ]; then
-        vidzi_tv_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
+        rockfile_eu_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" -b 'lang=english' || return
         storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
 
-        SESS=$(parse_cookie 'xfsts' < "$COOKIE_FILE")
+        SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
         log_debug "session (new): '$SESS'"
     else
         return $ERR_LINK_NEED_PERMISSIONS
     fi
 
-    PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=upload") || return
+    PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/upload_files") || return
     FORM_HTML=$(grep_form_by_name "$PAGE" 'file') || return
     FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
     FORM_UTYPE=$(parse_form_input_by_name 'upload_type' <<< "$PAGE") || return
     FORM_SESS=$(parse_form_input_by_name_quiet 'sess_id' <<< "$PAGE")
     FORM_SRV_TMP=$(parse_form_input_by_name 'srv_tmp_url' <<< "$PAGE") || return
-    FORM_SRV_ID=$(parse_form_input_by_name 'srv_id' <<< "$PAGE") || return
-    FORM_DSK_ID=$(parse_form_input_by_name 'disk_id' <<< "$PAGE") || return
     FORM_BUTTON=$(parse_form_input_by_name 'submit_btn' <<< "$PAGE") || return
 
     # "reg"
     USER_TYPE=$(parse 'var utype' "='\([^']*\)" <<< "$PAGE") || return
     log_debug "User type: '$USER_TYPE'"
 
-    TAGS_STR=''
-    if [ "${#TAGS[@]}" -gt 0 ]; then
-        for T in "${TAGS[@]}"; do TAGS_STR="$TAGS_STR,$T"; done
-        TAGS_STR=${TAGS_STR#,}
-        log_debug "Using tags: '$(replace_all ',' \'' '\' <<< "$TAGS_STR")'"
-    fi
-
-    if [ -z "$PRIVATE_FILE" ]; then
-        PRIVATE_FILE=1
-    else
-        PRIVATE_FILE=0
-    fi
-
     UPLOAD_ID=$(random dec 12) || return
     PAGE=$(curl_with_log \
         -F "upload_type=$FORM_UTYPE" \
         -F "sess_id=$FORM_SESS" \
         -F "srv_tmp_url=$FORM_TMP_SRV" \
-        -F "srv_id=$FORM_SRV_ID" \
-        -F "disk_id=$FORM_DSK_ID" \
-        -F "file=@$FILE;filename=$DESTFILE" \
-        --form-string "file_title=$TITLE" \
-        --form-string "file_descr=$DESCRIPTION" \
-        --form-string "tags=$TAGS_STR" \
-        -F "file_category=0" \
-        -F "file_public=$PRIVATE_FILE" \
-        -F 'tos=1' \
+        -F "file_0=@$FILE;filename=$DESTFILE" \
+        --form-string "file_0_descr=$DESCRIPTION" \
+        --form-string "link_rcpt=$TOEMAIL" \
+        --form-string "link_pass=$LINK_PASSWORD" \
+        --form-string 'to_folder=' \
         --form-string "submit_btn=$FORM_BUTTON" \
-        "${FORM_ACTION}${UPLOAD_ID}&utype=${USER_TYPE}&disk_id=${FORM_DSK_ID}" | break_html_lines) || return
+        "${FORM_ACTION}${UPLOAD_ID}&utype=${USER_TYPE}&js_on=1&upload_type=${FORM_UTYPE}" | break_html_lines) || return
 
     FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
     FORM_FN=$(parse_tag "name='fn'" textarea <<< "$PAGE") || return
@@ -142,7 +122,9 @@ vidzi_tv_upload() {
         PAGE=$(curl \
             -d "fn=$FORM_FN" -d "st=$FORM_ST" -d "op=$FORM_OP" \
             "$FORM_ACTION") || return
-        parse_attr '>File Title:<' 'href' <<< "$PAGE" || return
+
+        parse '>Download Link<' '">\(.*\)$' 1 <<< "$PAGE" || return
+        parse '>Delete Link<' '">\(.*\)$' 1 <<< "$PAGE" || return
         return 0
     fi
 
