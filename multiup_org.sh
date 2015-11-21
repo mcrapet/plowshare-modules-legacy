@@ -136,7 +136,7 @@ multiup_org_upload() {
 # $2: recurse subfolders (ignored here)
 # stdout: list of links
 multiup_org_list() {
-    local -r URL=$(replace '/miror/' '/download/' <<<"$1")
+    local -r URL=$(replace '/download/' '/en/mirror/' <<<"$1")
     local -r BASE_URL='http://www.multiup.org'
     local COOKIE_FILE PAGE LINK LINKS NAMES
 
