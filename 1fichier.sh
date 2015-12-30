@@ -191,7 +191,14 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     PAGE=$(curl --include -b "$COOKIE_FILE" -b 'LG=en' -d '' \
         --referer "$URL" "$URL") || return
 
-    FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
+    #ISSUE #31 #
+    # To help you discover our services, we will not limit your download speed.
+    if match 'To help you discover our services, we will not limit your download speed.' "$PAGE"; then
+        FILE_URL=$(echo "$PAGE" | parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style')
+    else
+        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
+    fi
+    #ISSUE #31 END #
 
     if [ -z "$FILE_URL" ]; then
         echo 300
