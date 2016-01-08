@@ -60,7 +60,7 @@ catshare_download() {
     local -r COOKIE_FILE=$1
     local URL=$2
     local -r BASE_URL='http://catshare.net'
-    local REAL_URL PAGE WAIT_TIME FILE_URL
+    local REAL_URL PAGE WAIT_TIME USUAL_WAIT_TIME FILE_URL
 
     # Get a canonical URL for this file.
     REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
@@ -83,6 +83,13 @@ catshare_download() {
     fi
 
     WAIT_TIME=$(parse 'var count = ' 'var count = \([0-9]\+\)' <<< "$PAGE") || return
+    USUAL_WAIT_TIME=$(parse '<td.*sekund</td>' '>\([[:digit:]]\+\)' <<< "$PAGE") || return
+    # Warning! You have reached your downloads limit.
+    if [[ $WAIT_TIME -gt $USUAL_WAIT_TIME ]]; then
+        log_error 'Download limit reached.'
+        echo $WAIT_TIME
+        return $ERR_LINK_TEMP_UNAVAILABLE
+    fi
     wait $WAIT_TIME || return
 
     local PUBKEY WCI CHALLENGE WORD ID
