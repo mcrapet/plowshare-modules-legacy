@@ -135,7 +135,7 @@ catshare_probe() {
     fi
 
     if [[ $REQ_IN = *i* ]]; then
-        parse_attr 'name="file_hash"' 'value' <<< "$PAGE" && \
+        parse 'property="og:url"' '.*/\([[:alnum:]]\+\)"' <<< "$PAGE" && \
             REQ_OUT="${REQ_OUT}i"
     fi
 
