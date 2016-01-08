@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_CATSHARE_REGEXP_URL='https\?://catshare\.net/'
+MODULE_CATSHARE_REGEXP_URL='https\?://\([[:alnum:]]\+\.\)\?catshare\.\(net\|xup\.pl\)/'
 
 MODULE_CATSHARE_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account"
@@ -58,9 +58,16 @@ catshare_login() {
 # stdout: real file download link
 catshare_download() {
     local -r COOKIE_FILE=$1
-    local -r URL=$2
+    local URL=$2
     local -r BASE_URL='http://catshare.net'
-    local PAGE WAIT_TIME FILE_URL
+    local REAL_URL PAGE WAIT_TIME FILE_URL
+
+    # Get a canonical URL for this file.
+    REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
+    if test "$REAL_URL"; then
+        URL="$REAL_URL"
+    fi
+    readonly URL
 
     if [ -n "$AUTH" ]; then
         catshare_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
