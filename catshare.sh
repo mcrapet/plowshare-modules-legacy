@@ -75,7 +75,10 @@ catshare_download() {
 
     PAGE=$(curl -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
 
-    if match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
+    if match "Nasz serwis wykrył że Twój adres IP nie pochodzi z Polski." "$PAGE"; then
+        log_error 'Free downloads are only allowed from Poland IP addresses.'
+        return $ERR_LINK_NEED_PERMISSIONS
+    elif match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
