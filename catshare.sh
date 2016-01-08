@@ -59,10 +59,11 @@ catshare_login() {
 catshare_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
-    local PAGE WAIT_TIME FILE_URL FILE_NAME
+    local -r BASE_URL='http://catshare.net'
+    local PAGE WAIT_TIME FILE_URL
 
     if [ -n "$AUTH" ]; then
-        catshare_login "$AUTH" "$COOKIE_FILE" 'https://catshare.net' || return
+        catshare_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
     fi
 
     PAGE=$(curl -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
