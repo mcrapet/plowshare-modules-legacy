@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_CATSHARE_REGEXP_URL='https\?://catshare\.net/'
+MODULE_CATSHARE_REGEXP_URL='https\?://\([[:alnum:]]\+\.\)\?catshare\.\(net\|xup\.pl\)/'
 
 MODULE_CATSHARE_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account"
@@ -58,20 +58,38 @@ catshare_login() {
 # stdout: real file download link
 catshare_download() {
     local -r COOKIE_FILE=$1
-    local -r URL=$2
-    local PAGE WAIT_TIME FILE_URL FILE_NAME
+    local URL=$2
+    local -r BASE_URL='http://catshare.net'
+    local REAL_URL PAGE WAIT_TIME USUAL_WAIT_TIME FILE_URL
+
+    # Get a canonical URL for this file.
+    REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
+    if test "$REAL_URL"; then
+        URL="$REAL_URL"
+    fi
+    readonly URL
 
     if [ -n "$AUTH" ]; then
-        catshare_login "$AUTH" "$COOKIE_FILE" 'https://catshare.net' || return
+        catshare_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
     fi
 
     PAGE=$(curl -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
 
-    if match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
+    if match "Nasz serwis wykrył że Twój adres IP nie pochodzi z Polski." "$PAGE"; then
+        log_error 'Free downloads are only allowed from Poland IP addresses.'
+        return $ERR_LINK_NEED_PERMISSIONS
+    elif match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
     WAIT_TIME=$(parse 'var count = ' 'var count = \([0-9]\+\)' <<< "$PAGE") || return
+    USUAL_WAIT_TIME=$(parse '<td.*sekund</td>' '>\([[:digit:]]\+\)' <<< "$PAGE") || return
+    # Warning! You have reached your downloads limit.
+    if [[ $WAIT_TIME -gt $USUAL_WAIT_TIME ]]; then
+        log_error 'Download limit reached.'
+        echo $WAIT_TIME
+        return $ERR_LINK_TEMP_UNAVAILABLE
+    fi
     wait $WAIT_TIME || return
 
     local PUBKEY WCI CHALLENGE WORD ID
@@ -111,7 +129,10 @@ catshare_probe() {
 
     PAGE=$(curl -L "$URL") || return
 
-    if match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
+    if match "Nasz serwis wykrył że Twój adres IP nie pochodzi z Polski." "$PAGE"; then
+        log_error 'Free downloads are only allowed from Poland IP addresses.'
+        return $ERR_LINK_NEED_PERMISSIONS
+    elif match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
@@ -127,7 +148,7 @@ catshare_probe() {
     fi
 
     if [[ $REQ_IN = *i* ]]; then
-        parse_attr 'name="file_hash"' 'value' <<< "$PAGE" && \
+        parse 'property="og:url"' '.*/\([[:alnum:]]\+\)"' <<< "$PAGE" && \
             REQ_OUT="${REQ_OUT}i"
     fi
 
