@@ -46,6 +46,7 @@ hipfile         | download | upload | delete | list | probe |
 jheberg         |          | upload |        | list | probe |
 keep2share      | download | upload |        |      | probe |
 letitbit        | download | upload | delete | list | probe |
+lunaticfiles    | download |        |        |      | probe |
 mediafire       | download | upload |        | list | probe |
 megashares      | download | upload | delete |      | probe |
 mirrorcreator   |          | upload |        | list |       |
