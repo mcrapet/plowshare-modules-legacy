@@ -1,5 +1,5 @@
 # Plowshare salefiles.com module
-# Copyright (c) 2015 Plowshare team
+# by idleloop <idleloop@yahoo.com>, v1.1, Jan 2016
 #
 # This file is part of Plowshare.
 #
@@ -24,13 +24,6 @@ MODULE_SALEFILES_DOWNLOAD_RESUME=yes
 MODULE_SALEFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
 MODULE_SALEFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
-MODULE_SALEFILES_UPLOAD_OPTIONS="
-AUTH_FREE,b,auth-free,a=EMAIL:PASSWORD,Free account (mandatory)"
-MODULE_SALEFILES_UPLOAD_REMOTE_SUPPORT=no
-
-MODULE_SALEFILES_DELETE_OPTIONS="
-AUTH_FREE,b,auth-free,a=EMAIL:PASSWORD,Free account"
-
 MODULE_SALEFILES_PROBE_OPTIONS=""
 
 # Output a salefiles file download URL
@@ -43,15 +36,14 @@ salefiles_download() {
     local -r BASE_URL='http://www.salefiles.com/'
     local PAGE FILE_URL FILE_NAME WAIT_LINE WAIT_TIME
 
-    # .htm are redirected to .html
-    if [ -n "$AUTH_FREE" ]; then
-        salefiles_login "$AUTH_FREE" "$COOKIE_FILE" "$BASE_URL" || return
-        PAGE=$(curl -L -b "$COOKIE_FILE" "$URL") || return
-    else
+    # no login support
+    #if [ -n "$AUTH_FREE" ]; then
+    #    salefiles_login "$AUTH_FREE" "$COOKIE_FILE" "$BASE_URL" || return
+    #    PAGE=$(curl -L -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
+    #else
         PAGE=$(curl -L -b "COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
-    fi
+    #fi
 
-    #if match 'The file you were looking for could not be found' "$PAGE"; then
     if match 'File Not Found' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
@@ -169,4 +161,44 @@ salefiles_download() {
 
     grep_http_header_location <<< "$PAGE" || return
     echo "$FILE_NAME"
+}
+
+# Probe a download URL
+# $1: cookie file (unused here)
+# $2: salefiles.com url
+# $3: requested capability list
+salefiles_probe() {
+    local -r REQ_IN=$3
+    local PAGE REQ_OUT FILE_SIZE
+
+    PAGE=$(curl --location "$URL") || return
+
+    # The file link that you requested is not valid (anymore).
+    if match 'File Not Found' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    fi
+
+    # The file link that you requested is incorrect.
+    if match 'Not Found' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    fi
+
+    REQ_OUT=c
+
+    if [[ $REQ_IN = *f* ]]; then
+        echo "$PAGE" | parse_form_input_by_name 'fname' | html_to_utf8 && REQ_OUT="${REQ_OUT}f"
+    fi
+
+    if [[ $REQ_IN = *s* ]]; then
+        FILE_SIZE=$(echo "$PAGE" | 
+            parse_all_quiet 'color:#4f4f4f' \
+            '>\([0-9\.]\+[[:space:]]\?[KkMG]\?B\)' 1) &&
+            translate_size "${FILE_SIZE/,/}" && REQ_OUT="${REQ_OUT}s"
+    fi
+
+    if [[ $REQ_IN = *i* ]]; then
+        parse_form_input_by_name 'id' <<< "$PAGE" && REQ_OUT="${REQ_OUT}i"
+    fi
+
+    echo $REQ_OUT
 }
