@@ -27,6 +27,7 @@ filebin_ca      | download | upload |        |      | probe |
 filecloud       | download | upload |        | list | probe |
 filecore        | download |        |        |      | probe |
 filefactory     | download | upload |        | list | probe |
+filejoker       | download |        |        |      | probe |
 filemonkey      |          | upload |        |      |       |
 fileover        | download |        |        |      | probe |
 fileparadox     |          | upload |        |      |       |
