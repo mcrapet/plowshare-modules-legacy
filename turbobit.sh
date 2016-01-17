@@ -197,7 +197,7 @@ turbobit_download() {
 
     # Download xyz. Free download without registration from TurboBit.net
     FILE_NAME=$(echo "$PAGE" | parse '<title>' \
-        '^[[:blank:]]*Download \(.\+\). Free' 1) || return
+        '^[[:blank:]]*Download file \(.\+\) (' 1) || return
 
     if [ -n "$AUTH" ]; then
         ACCOUNT=$(turbobit_login "$AUTH" "$COOKIE_FILE" \
@@ -348,9 +348,9 @@ turbobit_download() {
     FILE_URL="$BASE_URL$FILE_URL"
 
     # Redirects 2 times...
-    FILE_URL=$(curl -b "$COOKIE_FILE" --head "$FILE_URL" | \
+    FILE_URL=$(curl -b "$COOKIE_FILE" --referer "$FREE_URL" --head "$FILE_URL" | \
         grep_http_header_location) || return
-    FILE_URL=$(curl -b "$COOKIE_FILE" --head "$FILE_URL" | \
+    FILE_URL=$(curl -b "$COOKIE_FILE" --referer "$FREE_URL" --head "$FILE_URL" | \
         grep_http_header_location) || return
 
     echo "$FILE_URL"
@@ -511,13 +511,13 @@ turbobit_probe() {
 
     if [[ $REQ_IN = *f* ]]; then
         echo "$PAGE" | parse '<title>' \
-            '^[[:blank:]]*Download \(.\+\). Free' 1 && REQ_OUT="${REQ_OUT}f"
+            '^[[:blank:]]*Download file \(.\+\) (' 1 && REQ_OUT="${REQ_OUT}f"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
         # Note: Site uses 'b' for byte but 'translate_size' wants 'B'
-        FILE_SIZE=$(echo "$PAGE" | parse 'Download file:'  \
-            '(\([[:digit:]]\+\(,[[:digit:]]\+\)\?[[:space:]][KMG]\?b\)\(yte\)\?)$' 1) &&
+        FILE_SIZE=$(echo "$PAGE" | parse '<title>'  \
+            '(\([[:digit:]]\+\(,[[:digit:]]\+\)\?[[:space:]][KMG]\?b\)\(yte\)\?)' 1) &&
             translate_size "${FILE_SIZE%b}B" && REQ_OUT="${REQ_OUT}s"
     fi
 
