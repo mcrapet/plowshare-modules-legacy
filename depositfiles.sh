@@ -175,7 +175,7 @@ depositfiles_download() {
     DATA=$(curl --location "$BASE_URL/get_file.php?fid=$FID") || return
 
     # reCaptcha page (challenge forced)
-    if match 'load_recaptcha();' "$DATA"; then
+    if match 'load_recaptcha(.*);' "$DATA"; then
 
         local PUBKEY WCI CHALLENGE WORD ID
         PUBKEY='6LdRTL8SAAAAAE9UOdWZ4d0Ky-aeA7XfSqyWDM2m'
