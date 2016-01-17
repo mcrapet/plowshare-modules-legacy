@@ -60,10 +60,17 @@ uploadable_ch_login() {
 #         file name
 uploadable_ch_download() {
     local -r COOKIE_FILE=$1
-    local -r URL=$(replace '://uploadable.ch' '://www.uploadable.ch' <<< "$2")
-    local -r BASE_URL='http://www.uploadable.ch'
+    local URL=$(replace '://uploadable.ch' '://www.uploadable.ch' <<< "$2")
+    local -r BASE_URL='https://www.uploadable.ch'
 
-    local PAGE LOCATION WAIT_TIME
+    local REAL_URL PAGE LOCATION WAIT_TIME
+
+    # Get a canonical URL for this file.
+    REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
+    if test "$REAL_URL"; then
+        URL="$REAL_URL"
+    fi
+    readonly URL
 
     if [ -n "$AUTH" ]; then
         uploadable_ch_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
@@ -210,7 +217,7 @@ uploadable_ch_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DEST_FILE=$3
-    local -r BASE_URL='http://www.uploadable.ch'
+    local -r BASE_URL='https://www.uploadable.ch'
 
     local PAGE UPLOAD_URL FILE_ID FILE_NAME DEL_CODE
 
@@ -314,8 +321,8 @@ uploadable_ch_upload() {
         fi
     fi
 
-    echo "http://www.uploadable.ch/file/$FILE_ID/$FILE_NAME"
-    echo "http://www.uploadable.ch/file/$FILE_ID/delete/$DEL_CODE"
+    echo "https://www.uploadable.ch/file/$FILE_ID/$FILE_NAME"
+    echo "https://www.uploadable.ch/file/$FILE_ID/delete/$DEL_CODE"
 }
 
 # Probe a download URL
@@ -342,7 +349,7 @@ uploadable_ch_probe() {
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse '"file_name"' '>(\([^)]\+\)' <<< "$PAGE") && \
+        FILE_SIZE=$(parse '"filename_normal"' '>(\([^)]\+\)' <<< "$PAGE") && \
             translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
     fi
 
