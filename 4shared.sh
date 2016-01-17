@@ -120,15 +120,15 @@ MODULE_4SHARED_PROBE_OPTIONS=""
     # - trinityConfig.globalFileName = '...'
     FILE_NAME=$(parse_all_quiet 'trinityConfig.globalFileName' '=[[:space:]]*["'\'']\([^/"'\'']*\)' <<< "$PAGE")
 
+    # - <h1 class="fileName light-blue lucida f24"> ... </h1>
+    if [ -z "$FILE_NAME" ]; then
+        FILE_NAME=$(echo "$PAGE" | parse_tag_quiet '=.fileName' 'h1')
+    fi
+
     # - <meta property="og:title" content="..."/>
     # Warning: filename without extension
     if [ -z "$FILE_NAME" ]; then
-        FILE_NAME=$(echo "$PAGE" | parse_attr_quiet 'og:title' 'content')
-    fi
-
-    # - <h1 class="fileName light-blue lucida f24"> ... </h1>
-    if [ -z "$FILE_NAME" ]; then
-        FILE_NAME=$(echo "$PAGE" | parse_tag '=.fileName' 'h1')
+        FILE_NAME=$(echo "$PAGE" | parse_attr 'og:title' 'content')
     fi
 
     # Special case for /photo/ URLs
@@ -169,7 +169,7 @@ MODULE_4SHARED_PROBE_OPTIONS=""
     fi
 
     if [ -z "$TORRENT" ]; then
-        FILE_URL=$(echo "$WAIT_HTML" | parse_attr_quiet 'linkShow' href)
+        FILE_URL=$(echo "$WAIT_HTML" | parse_attr_quiet 'baseDownloadLink' value)
         if [ -z "$FILE_URL" ]; then
             FILE_URL=$(echo "$WAIT_HTML" | parse 'window\.location' '= "\([^"]*\)') || return
         fi
