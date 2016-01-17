@@ -94,6 +94,8 @@ uplea_probe() {
         return $ERR_LINK_DEAD
     fi
 
+    # Note: Can't manage $ERR_LINK_NEED_PERMISSIONS with this link checker API.
+
     REQ_OUT=c
 
     echo $REQ_OUT
