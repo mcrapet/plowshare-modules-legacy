@@ -299,6 +299,9 @@ mediafire_download() {
 
         captcha_ack $ID
         log_debug 'Correct captcha'
+
+        # After resolving captcha we are redirected to an error page, so once again load a proper page.
+        PAGE=$(curl -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
     fi
 
     # Check for password protected link
