@@ -48,7 +48,7 @@ lunaticfiles_login() {
     LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
 
     PAGE=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
-        "$BASE_URL/login.html" -L) || return
+        "$BASE_URL/login.html" -L -b "$COOKIE_FILE") || return
 
     # If successful, two entries are added into cookie file: login and xfss.
     STATUS=$(parse_cookie_quiet 'xfss' < "$COOKIE_FILE")
@@ -106,9 +106,6 @@ lunaticfiles_download() {
         -d "method_free=$FORM_METHOD_F" \
         "$URL") || return
 
-    # Emulate 'grep_form_by_name_quiet'.
-    FORM_HTML=$(grep_form_by_name "$PAGE" 'F1' 2>/dev/null)
-
     # Warning! You have reached your daily downloads limit.
     if match 'Przekroczono dobowy limit transferu.' "$PAGE"; then
         log_error 'Daily download limit reached.'
@@ -116,12 +113,13 @@ lunaticfiles_download() {
         return $ERR_LINK_TEMP_UNAVAILABLE
 
     # Warning! Without premium status, you can download only one file at a time.
-    elif [ -z "$FORM_HTML" ]; then
+    elif match 'Pobierasz już jeden plik z naszych serwerów!' "$PAGE"; then
         log_error 'No parallel download allowed.'
         echo 120
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
 
+    FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
     FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
