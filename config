@@ -34,6 +34,7 @@ fileparadox     |          | upload |        |      |       |
 filepost        | download | upload | delete | list | probe |
 filepup_net     | download |        |        |      | probe |
 filer_net       | download |        |        | list | probe |
+fileshark       | download |        |        |      | probe |
 firedrive       | download |        |        |      | probe |
 flashx          | download |        |        |      | probe |
 freakshare      | download | upload |        |      | probe |
