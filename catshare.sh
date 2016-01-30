@@ -26,16 +26,17 @@ MODULE_CATSHARE_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_CATSHARE_PROBE_OPTIONS=""
 
-# Static function. Proceed with login (free)
+# Static function. Proceed with login
 # $1: authentication
 # $2: cookie file
 # $3: base URL
+# stdout: account type ("free" or "premium") on success
 catshare_login() {
     local -r AUTH=$1
     local -r COOKIE_FILE=$2
     local -r BASE_URL=$3
 
-    local LOGIN_DATA PAGE STATUS NAME
+    local LOGIN_DATA PAGE STATUS NAME TYPE
 
     LOGIN_DATA='user_email=$USER&user_password=$PASSWORD&remindPassword=0'
 
@@ -46,10 +47,20 @@ catshare_login() {
     STATUS=$(parse_cookie_quiet 'session_id' < "$COOKIE_FILE")
     [ -z "$STATUS" ] && return $ERR_LOGIN_FAILED
 
-    NAME=$(echo "$PAGE" | parse 'Zalogowano' \
-            'Zalogowano \(.\+\)</a>') || return
+    NAME=$(parse 'Zalogowano' 'Zalogowano \(.\+\)</a>' <<< "$PAGE") || return
+    TYPE=$(parse 'Konto:' '\([DP][[:alpha:]]*\)' 1 <<< "$PAGE") || return
 
-    log_debug "Successfully logged in as member '$NAME'"
+    if [ "$TYPE" = 'Darmowe' ]; then
+        TYPE='free'
+    elif [ "$TYPE" = 'Premium' ]; then
+        TYPE='premium'
+    else
+        log_error 'Could not determine account type.'
+        return $ERR_FATAL
+    fi
+
+    log_debug "Successfully logged in as $TYPE member '$NAME'"
+    echo $TYPE
 }
 
 # Output a catshare.net file download URL
@@ -60,7 +71,7 @@ catshare_download() {
     local -r COOKIE_FILE=$1
     local URL=$2
     local -r BASE_URL='http://catshare.net'
-    local REAL_URL PAGE WAIT_TIME USUAL_WAIT_TIME FILE_URL
+    local REAL_URL PAGE ACCOUNT WAIT_TIME USUAL_WAIT_TIME FILE_URL
 
     # Get a canonical URL for this file.
     REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
@@ -70,7 +81,7 @@ catshare_download() {
     readonly URL
 
     if [ -n "$AUTH" ]; then
-        catshare_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
+        ACCOUNT=$(catshare_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
     fi
 
     PAGE=$(curl -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
@@ -80,6 +91,13 @@ catshare_download() {
         return $ERR_LINK_NEED_PERMISSIONS
     elif match "Podany plik został usunięty\|<title>Error 404</title>" "$PAGE"; then
         return $ERR_LINK_DEAD
+    fi
+
+    # If this is a premium download, we already have the download link.
+    if [ "$ACCOUNT" = 'premium' ]; then
+        FILE_URL=$(parse_attr '<form.*method="GET">' 'action' <<< "$PAGE") || return
+        echo "$FILE_URL"
+        return 0
     fi
 
     WAIT_TIME=$(parse 'var count = ' 'var count = \([0-9]\+\)' <<< "$PAGE") || return
@@ -103,7 +121,7 @@ catshare_download() {
         -d "recaptcha_response_field=$WORD" \
         "$URL") || return
 
-    FILE_URL=$(parse_attr_quiet '<form.*method="GET">' 'action' <<< "$PAGE") || return
+    FILE_URL=$(parse_attr_quiet '<form.*method="GET">' 'action' <<< "$PAGE")
 
     if [ -z "$FILE_URL" ]; then
         captcha_nack $ID
