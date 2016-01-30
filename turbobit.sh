@@ -321,7 +321,7 @@ turbobit_download() {
     # Unable to Complete Request
     # The site is temporarily unavailable during upgrade process
     if match 'Unable to Complete Request\|temporarily unavailable' "$PAGE"; then
-        log_error 'Site maintainance'
+        log_error 'Site maintenance'
         echo 300
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
