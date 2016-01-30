@@ -30,7 +30,7 @@ MODULE_ANONFILES_UPLOAD_REMOTE_SUPPORT=no
 MODULE_ANONFILES_PROBE_OPTIONS=""
 
 # Output an AnonFiles.com file download URL
-# $1: cookie file (unsued here)
+# $1: cookie file (unused here)
 # $2: anonfiles url
 # stdout: real file download link
 anonfiles_download() {

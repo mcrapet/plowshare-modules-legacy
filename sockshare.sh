@@ -307,7 +307,7 @@ sockshare_upload() {
     elif [ "$METHOD" = 'form' ]; then
         sockshare_upload_form "$COOKIE_FILE" "$FILE" "$DEST_FILE" || return
     else
-        log_error 'Unknow method (check --method parameter)'
+        log_error 'Unknown method (check --method parameter)'
         return $ERR_FATAL
     fi
 }
@@ -388,7 +388,7 @@ sockshare_upload_form() {
             return $ERR_BAD_COMMAND_LINE
         fi
 
-        # current_folder option doesen't work
+        # current_folder option doesn't work
         PAGE=$(sockshare_curl_failsafe -b "$COOKIE_FILE" -L \
             -e "$BASE_URL/cp.php?action=external_upload" \
             -d "external_url=$FILE" \
