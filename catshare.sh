@@ -47,16 +47,13 @@ catshare_login() {
     STATUS=$(parse_cookie_quiet 'session_id' < "$COOKIE_FILE")
     [ -z "$STATUS" ] && return $ERR_LOGIN_FAILED
 
-    NAME=$(parse 'Zalogowano' 'Zalogowano \(.\+\)</a>' <<< "$PAGE") || return
-    TYPE=$(parse 'Konto:' '\([DP][[:alpha:]]*\)' 1 <<< "$PAGE") || return
+    NAME=$(parse_quiet 'Zalogowano' 'Zalogowano \(.\+\)</a>' <<< "$PAGE")
+    TYPE=$(parse 'Konto:' '\(Darmowe\|Premium\)' 1 <<< "$PAGE") || return
 
     if [ "$TYPE" = 'Darmowe' ]; then
         TYPE='free'
     elif [ "$TYPE" = 'Premium' ]; then
         TYPE='premium'
-    else
-        log_error 'Could not determine account type.'
-        return $ERR_FATAL
     fi
 
     log_debug "Successfully logged in as $TYPE member '$NAME'"
@@ -69,15 +66,12 @@ catshare_login() {
 # stdout: real file download link
 catshare_download() {
     local -r COOKIE_FILE=$1
-    local URL=$2
     local -r BASE_URL='http://catshare.net'
-    local REAL_URL PAGE ACCOUNT WAIT_TIME USUAL_WAIT_TIME FILE_URL
+    local URL ACCOUNT PAGE WAIT_TIME USUAL_WAIT_TIME FILE_URL
 
     # Get a canonical URL for this file.
-    REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
-    if test "$REAL_URL"; then
-        URL="$REAL_URL"
-    fi
+    URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
+    [ -n "$URL" ] || URL=$2
     readonly URL
 
     if [ -n "$AUTH" ]; then
@@ -85,7 +79,7 @@ catshare_download() {
     fi
 
     # Note: Save HTTP headers to catch premium users' "direct downloads".
-    PAGE=$(curl -i -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
+    PAGE=$(curl -i -b "$COOKIE_FILE" "$URL") || return
 
     if match "Nasz serwis wykrył że Twój adres IP nie pochodzi z Polski." "$PAGE"; then
         log_error 'Free downloads are only allowed from Poland IP addresses.'
@@ -176,8 +170,8 @@ catshare_probe() {
     fi
 
     if [[ $REQ_IN = *i* ]]; then
-        parse 'property="og:url"' '.*/\([[:alnum:]]\+\)"' <<< "$PAGE" && \
-            REQ_OUT="${REQ_OUT}i"
+        parse 'property="og:url"' '.*/\([[:alnum:]]\+\)"' <<< "$PAGE" \
+            && REQ_OUT="${REQ_OUT}i"
     fi
 
     echo $REQ_OUT
