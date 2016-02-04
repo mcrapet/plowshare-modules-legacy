@@ -84,7 +84,8 @@ catshare_download() {
         ACCOUNT=$(catshare_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
     fi
 
-    PAGE=$(curl -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
+    # Note: Save HTTP headers to catch premium users' "direct downloads".
+    PAGE=$(curl -i -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
 
     if match "Nasz serwis wykrył że Twój adres IP nie pochodzi z Polski." "$PAGE"; then
         log_error 'Free downloads are only allowed from Poland IP addresses.'
@@ -93,9 +94,17 @@ catshare_download() {
         return $ERR_LINK_DEAD
     fi
 
-    # If this is a premium download, we already have the download link.
+    # If this is a premium download, we already have a download link.
     if [ "$ACCOUNT" = 'premium' ]; then
-        FILE_URL=$(parse_attr '<form.*method="GET">' 'action' <<< "$PAGE") || return
+        MODULE_CATSHARE_DOWNLOAD_RESUME=yes
+
+        # Get a download link, if this was a direct download.
+        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
+
+        if [ -z "$FILE_URL" ]; then
+            FILE_URL=$(parse_attr '<form.*method="GET">' 'action' <<< "$PAGE") || return
+        fi
+
         echo "$FILE_URL"
         return 0
     fi
