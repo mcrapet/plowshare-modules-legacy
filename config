@@ -65,6 +65,7 @@ openload_io     | download |        |        |      | probe |
 pastebin        |          |        |        | list |       |
 promptfile      | download |        |        |      | probe |
 rapidgator      | download | upload | delete | list | probe |
+rapidu          | download |        |        |      | probe |
 rghost          | download | upload |        |      | probe |
 rockfile_eu     |          | upload |        |      |       |
 ryushare        | download | upload |        |      | probe |
