@@ -136,8 +136,9 @@ fileshark_probe() {
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse_tag 'size-file' 'strong' <<< "$PAGE") && \
-            translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+        FILE_SIZE=$(parse_tag 'size-file' 'strong' <<< "$PAGE") \
+            && FILE_SIZE=$(replace 'B' 'iB' <<< $FILE_SIZE) \
+            && translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
     fi
 
     if [[ $REQ_IN = *i* ]]; then
