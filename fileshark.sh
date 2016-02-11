@@ -31,8 +31,7 @@ MODULE_FILESHARK_PROBE_OPTIONS=""
 # stdout: real file download link
 fileshark_download() {
     local -r COOKIE_FILE=$1
-    local URL=$2
-    local PAGE FILE_ID FREE_URL WAIT_TIME FILE_URL
+    local URL PAGE FILE_ID FREE_URL WAIT_TIME FILE_URL
     local CAPTCHA_BASE64 CAPTCHA_IMG FORM_TOKEN
 
     if ! check_exec 'base64'; then
@@ -41,10 +40,8 @@ fileshark_download() {
     fi
 
     # Get a canonical URL for this file.
-    URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
-    if ! test "$URL"; then
-        URL=$2
-    fi
+    URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
+    [ -n "$URL" ] || URL=$2
     readonly URL
 
     PAGE=$(curl -c "$COOKIE_FILE" -i "$URL") || return
