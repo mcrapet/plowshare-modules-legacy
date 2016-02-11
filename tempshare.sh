@@ -1,5 +1,5 @@
-# Plowshare tempshare.com module
-# Copyright (c) 2016 Plowshare team
+# Plowshare temp-share.com module
+# Copyright (c) 2016 Raziel-23
 #
 # This file is part of Plowshare.
 #
@@ -31,21 +31,18 @@ MODULE_TEMPSHARE_PROBE_OPTIONS=""
 # $2: tempshare url
 # stdout: real file download link
 tempshare_download() {
-    local URL=$2
-    local PAGE FILE_URL FILE_NAME PUBKEY
+    local URL PAGE FILE_URL FILE_NAME PUBKEY
 
-    PAGE=$(curl -L -i "$URL" | break_html_lines) || return
+    # Get a canonical URL for this file.
+    URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
+    [ -n "$URL" ] || URL=$2
+    readonly URL
+
+    PAGE=$(curl "$URL" | break_html_lines) || return
 
     if ! match 'data-url' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
-
-    # Get a canonical URL for this file.
-    URL=$(grep_http_header_location_quiet <<< "$PAGE")
-    if ! test "$URL"; then
-        URL=$2
-    fi
-    readonly URL
 
     FILE_URL=$(parse_attr 'data-url' <<< "$PAGE") || return
     FILE_NAME=$(parse_tag 'h1' <<< "$PAGE") || return
@@ -81,14 +78,14 @@ tempshare_probe() {
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse '<span>(.*)</span>' '(\([^)]\+\)' <<< "$PAGE") && \
-            FILE_SIZE=$(replace 'B' 'iB' <<< $FILE_SIZE) && \
-            translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+        FILE_SIZE=$(parse '<span>(.*)</span>' '(\([^)]\+\)' <<< "$PAGE") \
+            && FILE_SIZE=$(replace 'B' 'iB' <<< $FILE_SIZE) \
+            && translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
     fi
 
     if [[ $REQ_IN = *i* ]]; then
-        parse 'data-url' 'f/\(.\+\)/download' <<< "$PAGE" && \
-            REQ_OUT="${REQ_OUT}i"
+        parse 'data-url' 'f/\(.\+\)/download' <<< "$PAGE" \
+            && REQ_OUT="${REQ_OUT}i"
     fi
 
     echo $REQ_OUT
