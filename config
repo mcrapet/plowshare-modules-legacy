@@ -72,6 +72,7 @@ ryushare        | download | upload |        |      | probe |
 salefiles       | download |        |        |      | probe |
 sendspace       | download | upload | delete | list | probe |
 sharebeast      | download | upload | delete |      | probe |
+sharehost       | download |        |        |      | probe |
 shareonline_biz | download | upload |        |      | probe |
 sockshare       | download | upload | delete | list | probe |
 solidfiles      | download | upload |        | list | probe |
