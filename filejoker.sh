@@ -1,5 +1,5 @@
 # Plowshare filejoker.net module
-# by idleloop <idleloop@yahoo.com>, v1.0, Jan 2016
+# by idleloop <idleloop@yahoo.com>, v1.1, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -34,7 +34,7 @@ filejoker_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
     local -r BASE_URL='https://www.filejoker.net/'
-    local PAGE FILE_URL FILE_NAME WAIT_LINE WAIT_TIME
+    local PAGE FILE_URL FILE_NAME WAIT_LINE WAIT_TIME FORM_HTML FORM_ID FORM_OP FORM_FILENAME FILE_NAME FORM_METHOD_F FORM_ACTION FORM_RAND
 
     # no login support
     #if [ -n "$AUTH_FREE" ]; then
@@ -98,11 +98,11 @@ filejoker_download() {
     fi
 
     # parse wait time
-    WAIT=$(parse_quiet 'Please Wait ' \
+    WAIT_TIME=$(parse_quiet 'Please Wait ' \
         'Wait <.\+>\([[:digit:]]\+\)<.\+> seconds' <<< "$PAGE") || return
 
-    if [ -n "$WAIT" ]; then
-        wait $(( WAIT + 1 )) || return
+    if [ -n "$WAIT_TIME" ]; then
+        wait $(( WAIT_TIME + 1 )) || return
     fi
 
     # check for and handle CAPTCHA (if any)
