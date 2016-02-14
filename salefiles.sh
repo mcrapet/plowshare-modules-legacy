@@ -1,5 +1,5 @@
 # Plowshare salefiles.com module
-# by idleloop <idleloop@yahoo.com>, v1.1, Jan 2016
+# by idleloop <idleloop@yahoo.com>, v1.2, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -34,7 +34,7 @@ salefiles_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
     local -r BASE_URL='http://www.salefiles.com/'
-    local PAGE FILE_URL FILE_NAME WAIT_LINE WAIT_TIME
+    local PAGE FILE_URL FILE_NAME WAIT_LINE WAIT_TIME FORM_HTML FORM_ID FORM_OP FORM_FILENAME FILE_NAME FORM_METHOD_F FORM_ACTION FORM_RAND
 
     # no login support
     #if [ -n "$AUTH_FREE" ]; then
@@ -78,13 +78,13 @@ salefiles_download() {
         "$URL") || return
 
     # check for forced delay
-    WAIT=$(parse_quiet 'You have to wait .* till next download' \
+    WAIT_TIME=$(parse_quiet 'You have to wait .* till next download' \
         'wait \([[:digit:]]\+\)' <<< "$PAGE")
 
-    if [ -n "$WAIT" ]; then
+    if [ -n "$WAIT_TIME" ]; then
         log_error 'Forced delay between downloads.'
         # Note: Get rid of leading zeros so numbers will not be considered octal
-        echo $(( (WAIT + 1) * 60 ))
+        echo $(( (WAIT_TIME + 1) * 60 ))
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
 
@@ -94,8 +94,12 @@ salefiles_download() {
     fi
 
     # parse wait time
-    WAIT=$(parse_quiet 'Wait ' \
+    WAIT_TIME=$(parse_quiet 'Wait ' \
         'Wait <.\+>\([[:digit:]]\+\)<.\+> seconds' <<< "$PAGE") || return
+
+    if [ -n "$WAIT_TIME" ]; then
+        wait $(( WAIT_TIME + 1 )) || return
+    fi
 
     # check for and handle CAPTCHA (if any)
     # Note: emulate 'grep_form_by_id_quiet'
@@ -117,10 +121,6 @@ salefiles_download() {
         else
             log_error 'Unexpected content/captcha type. Site updated?'
             return $ERR_FATAL
-        fi
-
-        if [ -n "$WAIT" ]; then
-            wait $(( WAIT + 1 )) || return
         fi
 
         log_debug "Captcha data: $CAPTCHA_DATA"
