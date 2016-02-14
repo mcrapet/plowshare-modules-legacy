@@ -1,5 +1,5 @@
 # Plowshare filejoker.net module
-# by idleloop <idleloop@yahoo.com>, v1.1, Feb 2016
+# by idleloop <idleloop@yahoo.com>, v1.2, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -18,8 +18,7 @@
 
 MODULE_FILEJOKER_REGEXP_URL='https\?://\(www\.\)\?filejoker\.net/[[:alnum:]]\+'
 
-MODULE_FILEJOKER_DOWNLOAD_OPTIONS="
-AUTH_FREE,b,auth-free,a=EMAIL:PASSWORD,Free account"
+MODULE_FILEJOKER_DOWNLOAD_OPTIONS=""
 MODULE_FILEJOKER_DOWNLOAD_RESUME=yes
 MODULE_FILEJOKER_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
 MODULE_FILEJOKER_DOWNLOAD_SUCCESSIVE_INTERVAL=
