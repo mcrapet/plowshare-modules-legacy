@@ -1,5 +1,5 @@
 # Plowshare upload.cd module
-# by idleloop <idleloop@yahoo.com>, v1.0, Feb 2016
+# by idleloop <idleloop@yahoo.com>, v1.1, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -18,8 +18,7 @@
 
 MODULE_UPLOAD_CD_REGEXP_URL='http://\(www\.\)\?upload\.cd/[[:alnum:]]\+'
 
-MODULE_UPLOAD_CD_DOWNLOAD_OPTIONS="
-AUTH_FREE,b,auth-free,a=EMAIL:PASSWORD,Free account"
+MODULE_UPLOAD_CD_DOWNLOAD_OPTIONS=""
 MODULE_UPLOAD_CD_DOWNLOAD_RESUME=yes
 MODULE_UPLOAD_CD_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
 MODULE_UPLOAD_CD_DOWNLOAD_SUCCESSIVE_INTERVAL=
