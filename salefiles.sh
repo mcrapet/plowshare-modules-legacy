@@ -1,5 +1,5 @@
 # Plowshare salefiles.com module
-# by idleloop <idleloop@yahoo.com>, v1.2, Feb 2016
+# by idleloop <idleloop@yahoo.com>, v1.3, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -18,8 +18,7 @@
 
 MODULE_SALEFILES_REGEXP_URL='http://\(www\.\)\?salefiles\.com/[[:alnum:]]\+/\?.*'
 
-MODULE_SALEFILES_DOWNLOAD_OPTIONS="
-AUTH_FREE,b,auth-free,a=EMAIL:PASSWORD,Free account"
+MODULE_SALEFILES_DOWNLOAD_OPTIONS=""
 MODULE_SALEFILES_DOWNLOAD_RESUME=yes
 MODULE_SALEFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
 MODULE_SALEFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
