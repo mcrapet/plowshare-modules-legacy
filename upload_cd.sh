@@ -1,5 +1,5 @@
 # Plowshare upload.cd module
-# by idleloop <idleloop@yahoo.com>, v1.1, Feb 2016
+# by idleloop <idleloop@yahoo.com>, v1.2, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -32,7 +32,7 @@ MODULE_UPLOAD_CD_PROBE_OPTIONS=""
 upload_cd_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
-    local -r BASE_URL='http://upload.cd/'
+    local -r BASE_URL='http://upload.cd'
     local -r TIMER_URL='http://upload.cd/download/startTimer'
     local -r CHECK_TIMER_URL='http://upload.cd/download/checkTimer'
     local PAGE FILE_URL FILE_NAME FORM_HTML FORM_FILEID FORM_USID FORM_METHOD FORM_ACTION FILE_SID WAIT_TIME
@@ -89,15 +89,22 @@ upload_cd_download() {
 
     # intermediate petition "2" to stop timer on both sides:
     PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" -H "Referer: $URL" \
+                                  -H "Origin: $BASE_URL" \
+                                  -H "X-Requested-With: XMLHttpRequest" \
                                   --data-urlencode "sid=$FILE_SID" \
         "$CHECK_TIMER_URL") || return
+
+    if match 'Your request is invalid.' "$PAGE"; then
+        log_error 'Request refused.'
+        return $ERR_FATAL
+    fi
 
     # after the intermediate petitions for obtaining sid/usid ,
     # request download
     PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" -H "Referer: $URL" \
                                   --data-urlencode "fileid=$FORM_FILEID" \
                                   --data-urlencode "usid=$FILE_SID" \
-                                  --data-urlencode "referer=$URL" \
+                                  --data-urlencode "referer=" \
                                   --data-urlencode "premium_dl=$FORM_METHOD" \
         "$BASE_URL$FORM_ACTION") || return
 
@@ -116,7 +123,7 @@ upload_cd_download() {
             RESP=$(recaptcha_process $PUBKEY) || return
             { read WORD; read CHALL; read ID; } <<< "$RESP"
 
-            CAPTCHA_DATA="-F recaptcha_challenge_field=$CHALL -F recaptcha_response_field=$WORD"
+            CAPTCHA_DATA="-d recaptcha_challenge_field=$CHALL -d recaptcha_response_field=$WORD"
 
         else
             log_error 'Unexpected content/captcha type. Site updated?'
@@ -127,14 +134,14 @@ upload_cd_download() {
 
         PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" $CAPTCHA_DATA \
                                    -H "Referer: $BASE_URL$FORM_ACTION" \
-                                  --data-urlencode "fileid=$FORM_FILEID" \
+                                   -d "fileid=$FORM_FILEID" \
             "$BASE_URL$FORM_ACTION") || return
 
         # Get error message, if any
         ERR=$(parse_tag_quiet '<div class="errorMessage"' 'div' <<< "$PAGE")
 
         if [ -n "$ERR" ]; then
-            if match 'Wrong captcha' "$ERR"; then
+            if match 'The verification code is incorrect' "$ERR"; then
                 log_error 'Wrong captcha'
                 captcha_nack "$ID"
                 return $ERR_CAPTCHA
