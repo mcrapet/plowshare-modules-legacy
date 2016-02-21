@@ -153,7 +153,11 @@ zippyshare_download() {
           }
         };
         $JS
-        print(elts['fimage'].href);" | javascript) || return
+        if (typeof console === 'object' && typeof console.log === 'function') {
+          console.log(elts['fimage'].href);
+        } else {
+          print(elts['fimage'].href);
+        }" | javascript) || return
 
     FILE_URL="$(basename_url "$URL")$PART_URL"
 
