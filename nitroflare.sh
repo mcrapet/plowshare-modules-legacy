@@ -41,7 +41,7 @@ nitroflare_download() {
 
     PAGE=$(curl -c "$COOKIE_FILE" -i -L "$URL") || return
 
-    if match "File doesn't exist\|404 Not Found" "$PAGE"; then
+    if match "File doesn't exist\|This file has been removed\|404 Not Found" "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
@@ -54,7 +54,7 @@ nitroflare_download() {
 
     FREE_URL=$(parse_attr '<form action=' 'action' <<< "$PAGE") || return
     PAGE=$(curl -b "$COOKIE_FILE" \
-        -d "goToFreePage=" \
+        -d 'goToFreePage=' \
         -L "$FREE_URL") || return
 
     # Start timer.
@@ -114,7 +114,7 @@ nitroflare_probe() {
 
     PAGE=$(curl -i -L "$URL") || return
 
-    if match "File doesn't exist\|404 Not Found" "$PAGE"; then
+    if match "File doesn't exist\|This file has been removed\|404 Not Found" "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
