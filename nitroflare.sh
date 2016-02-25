@@ -60,7 +60,6 @@ nitroflare_download() {
     # Start timer.
     FILE_ID=$(parse . 'view/\([^/]\+\)' <<< "$URL") || return
     RESP=$(curl -b "$COOKIE_FILE" \
-        -c "$COOKIE_FILE" \
         -d 'method=startTimer' \
         -d "fileId=$FILE_ID" \
         "$BASE_URL/ajax/freeDownload.php") || return
