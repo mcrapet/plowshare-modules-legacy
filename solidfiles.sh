@@ -139,7 +139,7 @@ solidfiles_download() {
         return $ERR_LINK_DEAD
     fi
 
-    FILE_URL=$(parse_attr 'ddl-btn' 'href' <<< "$PAGE") || return
+    FILE_URL=$(parse_attr 'ddl-text' 'href' <<< "$PAGE") || return
 
     if [ "$FILE_URL" = 'None' ]; then
         return $ERR_LINK_DEAD
