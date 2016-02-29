@@ -23,6 +23,7 @@ dl_free_fr      | download | upload | delete |      | probe |
 embedupload     |          |        |        | list |       |
 euroshare_eu    | download | upload | delete |      | probe |
 exoshare        |          | upload |        | list |       |
+fboom_me        | download | upload |        |      | probe |
 filebin_ca      | download | upload |        |      | probe |
 filecloud       | download | upload |        | list | probe |
 filecore        | download |        |        |      | probe |
