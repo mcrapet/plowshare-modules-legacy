@@ -21,6 +21,7 @@ directmirror    |          | upload |        | list |       |
 divshare        | download | upload | delete | list | probe |
 dl_free_fr      | download | upload | delete |      | probe |
 embedupload     |          |        |        | list |       |
+espafiles       | download |        |        |      | probe |
 euroshare_eu    | download | upload | delete |      | probe |
 exoshare        |          | upload |        | list |       |
 filebin_ca      | download | upload |        |      | probe |
