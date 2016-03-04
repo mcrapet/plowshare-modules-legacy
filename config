@@ -81,6 +81,7 @@ tempsend        | download | upload |        |      |       |
 tempshare       | download |        |        |      | probe |
 thefilebay      | download | upload |        |      | probe |
 turbobit        | download | upload | delete | list | probe |
+uloz_to         | download |        |        |      | probe |
 ultramegabit    | download | upload |        |      | probe |
 uplea           | download |        |        |      | probe |
 upload_cd       | download |        |        |      | probe |
