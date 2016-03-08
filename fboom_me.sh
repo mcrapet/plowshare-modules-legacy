@@ -1,5 +1,5 @@
 # Plowshare fboom.me module
-# by idleloop <idleloop@yahoo.com>, v1.0, Feb 2016
+# by idleloop <idleloop@yahoo.com>, v1.1, Mar 2016
 #
 # This file is part of Plowshare.
 #
@@ -28,6 +28,13 @@ MODULE_FBOOM_ME_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_FBOOM_ME_PROBE_OPTIONS=""
 
+# Static function. Switch language to english
+# $1: cookie file
+# $2: base URL
+fboom_me_switch_lang() {
+    curl "$2/site/setLanguage" -b "$1" -c "$1" -d 'language=en' > /dev/null || return
+}
+
 # Output an fboom_me file download URL
 # $1: cookie file
 # $2: fboom_me url
@@ -43,7 +50,9 @@ fboom_me_download() {
     BASE_URL=${URL%/file*}
     readonly URL BASE_URL
 
-    PAGE=$(curl -c "$COOKIE_FILE" "$URL") || return
+    fboom_me_switch_lang "$COOKIE_FILE" "$BASE_URL"
+
+    PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
 
     # Malformed url
     if match 'The system is unable to find the requested action' "$PAGE"; then
@@ -135,9 +144,7 @@ fboom_me_download() {
         WAIT=$(parse ' id="download-wait-timer"' \
             '.*>[[:blank:]]*\([[:digit:]]\+\)' 1 <<< "$PAGE") || return
 
-        if [ -n "$WAIT" ]; then
-            wait $(( WAIT + 1 )) || return
-        fi
+        wait $(( WAIT + 1 )) || return
 
         PAGE=$(curl -b "$COOKIE_FILE" -d "uniqueId=$FILE_ID" \
             -d 'free=1' "$URL") || return
@@ -173,7 +180,7 @@ fboom_me_probe() {
     local -r REQ_IN=$3
     local PAGE REQ_OUT FILE_NAME
 
-    PAGE=$(curl --location "$URL") || return
+    PAGE=$(curl --location -b 'language=en' "$URL") || return
 
     # File not found or delete
     if match 'File not found or deleted\|This file is no longer available' "$PAGE"; then
