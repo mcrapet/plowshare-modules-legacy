@@ -30,7 +30,7 @@ MODULE_1FICHIER_DOWNLOAD_SUCCESSIVE_INTERVAL=
 MODULE_1FICHIER_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account
 LINK_PASSWORD,p,link-password,S=PASSWORD,Protect a link with a password
-FOLDER,,folder,s=FOLDER,Folder to upload files into (root folder child only!)
+FOLDER,,folder,s=FOLDER,Folder to upload files into (support subfolders)
 MESSAGE,d,message,S=MESSAGE,Set file message (is send with notification email)
 DOMAIN,,domain,N=ID,You can set domain ID to upload (ID can be found at http://www.1fichier.com/en/api/web.html)
 TOEMAIL,,email-to,e=EMAIL,<To> field for notification email
@@ -217,43 +217,56 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r NAME=$1
     local -r COOKIE_FILE=$2
     local -r BASE_URL=$3
-    local PAGE RESPONSE DIR_ID
+    local PAGE RESPONSE BASE DIR_ID DIR_NAMES
 
-    if match "[\"'\`/\\<>\$]" "$NAME"; then
-        log_error "Folder may not contain the next characters: \"'\`/\\<>\$"
+    if match "^/" "$NAME" || match "/$" "$NAME"; then
+        log_error "Folder may not begin or end with the folder separator '/'"
         return $ERR_FATAL
     fi
 
-    log_debug 'Getting folder data'
-    PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=0&oby=0&search=") || return
-
-    # Create folder if not exist
-    # class="dF"><a href="#" onclick="return false">$NAME<
-    if ! match "class=\"dF\"><a href=\"#\" onclick=\"return false\">$NAME<" "$PAGE"; then
-        log_debug "Creating folder: '$NAME'"
-
-        # FIXME: Create new directory only in the base (dir_id=0)
-        RESPONSE=$(curl -b "$COOKIE_FILE" -b 'LG=en' -L \
-            -d "mkdir=$NAME" \
-            -d 'dir_id=0' \
-            "$BASE_URL/console/mkdir.pl") || return
-
-        if [ "$RESPONSE" != 'Folder created successfully' ]; then
-            if [ -z "$RESPONSE" ]; then
-                log_error 'Could not create folder.'
-            else
-                log_error "Create folder error: $RESPONSE"
-            fi
-            return $ERR_FATAL
-        fi
-
-        # Grab the page again to have the DIR_ID of the new directory
-        PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=0&oby=0&search=") || return
+    if match "[\"'\`\\<>\$]" "$NAME"; then
+        log_error "Folder may not contain the next characters: \"'\`\\<>\$"
+        return $ERR_FATAL
     fi
 
-    # class=" directory" rel="$DIR_ID"><div class="dF"><a href="#" onclick="return false">$NAME<
-    DIR_ID=$(parse . "rel=\"\([[:digit:]]\+\)\"><div class=\"dF\"><a href=\"#\" onclick=\"return false\">$NAME<" <<< "$PAGE") || return
+    # We begin in the root directory (DIR_ID=0)
+    DIR_ID=0
 
+    # Convert subdirectory names into an array.
+    IFS='/' read -a DIR_NAMES <<< "$NAME"
+
+    for BASE in "${DIR_NAMES[@]}"; do
+        log_debug 'Getting folder data'
+        PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=$DIR_ID&oby=0&search=") || return
+
+        # Create folder if not exist
+        # class="dF"><a href="#" onclick="return false">$BASE<
+        if ! match "class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE<" "$PAGE"; then
+            log_debug "Creating folder: '$BASE'"
+
+            RESPONSE=$(curl -b "$COOKIE_FILE" -b 'LG=en' -L \
+                -d "mkdir=$BASE" \
+                -d "dir_id=$DIR_ID" \
+                "$BASE_URL/console/mkdir.pl") || return
+
+            if [ "$RESPONSE" != 'Folder created successfully' ]; then
+                if [ -z "$RESPONSE" ]; then
+                    log_error 'Could not create folder.'
+                else
+                    log_error "Create folder error: $RESPONSE"
+                fi
+                return $ERR_FATAL
+            fi
+
+            # Grab the page again to have the DIR_ID of the new directory
+            PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=$DIR_ID&oby=0&search=") || return
+        fi
+
+        # class=" directory" rel="$DIR_ID"><div class="dF"><a href="#" onclick="return false">$BASE<
+        DIR_ID=$(parse . "rel=\"\([[:digit:]]\+\)\"><div class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE<" <<< "$PAGE") || return
+    done
+
+    log_debug "DIR ID: '$DIR_ID'"
     echo $DIR_ID
 }
 
