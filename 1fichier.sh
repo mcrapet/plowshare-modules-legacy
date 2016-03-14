@@ -219,11 +219,6 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r BASE_URL=$3
     local PAGE RESPONSE BASE DIR_ID DIR_NAMES
 
-    if match "^/" "$NAME" || match "/$" "$NAME"; then
-        log_error "Folder may not begin or end with the folder separator '/'"
-        return $ERR_FATAL
-    fi
-
     if match "[\"'\`\\<>\$]" "$NAME"; then
         log_error "Folder may not contain the next characters: \"'\`\\<>\$"
         return $ERR_FATAL
@@ -236,6 +231,9 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     IFS='/' read -a DIR_NAMES <<< "$NAME"
 
     for BASE in "${DIR_NAMES[@]}"; do
+        # Skip empty names.
+        [ -z "$BASE" ] && continue
+
         log_debug 'Getting folder data'
         PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=$DIR_ID&oby=0&search=") || return
 
