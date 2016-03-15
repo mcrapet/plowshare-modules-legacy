@@ -180,7 +180,7 @@ multiup_org_probe() {
     local -r REQ_IN=$3
     local JSON REQ_OUT FILE_NAME HASH
 
-    # Notes relatinf to offcial API:
+    # Notes relating to official API:
     # - don't provide file size
     # - provides both md5 & sha1
     JSON=$(curl -F "link=$URL" 'http://www.multiup.org/api/check-file') || return

@@ -48,7 +48,7 @@ lunaticfiles_login() {
     LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
 
     PAGE=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
-        "$BASE_URL/login.html" -L) || return
+        "$BASE_URL/login.html" -L -b "$COOKIE_FILE") || return
 
     # If successful, two entries are added into cookie file: login and xfss.
     STATUS=$(parse_cookie_quiet 'xfss' < "$COOKIE_FILE")
@@ -64,17 +64,14 @@ lunaticfiles_login() {
 # stdout: real file download link
 lunaticfiles_download() {
     local -r COOKIE_FILE=$1
-    local URL=$2
     local -r BASE_URL='http://lunaticfiles.com/'
-    local REAL_URL PAGE WAIT_TIME FILE_URL
+    local URL PAGE WAIT_TIME FILE_URL
     local FORM_HTML FORM_OP FORM_USR FORM_ID FORM_FNAME FORM_REF
     local FORM_METHOD_F FORM_METHOD_P FORM_RAND FORM_DS FORM_SUBMIT
 
     # Get a canonical URL for this file.
-    REAL_URL=$(curl -I "$URL" | grep_http_header_location_quiet) || return
-    if test "$REAL_URL"; then
-        URL="$REAL_URL"
-    fi
+    URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
+    [ -n "$URL" ] || URL=$2
     readonly URL
 
     lunaticfiles_switch_lang "$COOKIE_FILE" "$BASE_URL"
@@ -106,9 +103,6 @@ lunaticfiles_download() {
         -d "method_free=$FORM_METHOD_F" \
         "$URL") || return
 
-    # Emulate 'grep_form_by_name_quiet'.
-    FORM_HTML=$(grep_form_by_name "$PAGE" 'F1' 2>/dev/null)
-
     # Warning! You have reached your daily downloads limit.
     if match 'Przekroczono dobowy limit transferu.' "$PAGE"; then
         log_error 'Daily download limit reached.'
@@ -116,12 +110,13 @@ lunaticfiles_download() {
         return $ERR_LINK_TEMP_UNAVAILABLE
 
     # Warning! Without premium status, you can download only one file at a time.
-    elif [ -z "$FORM_HTML" ]; then
+    elif match 'Pobierasz już jeden plik z naszych serwerów!' "$PAGE"; then
         log_error 'No parallel download allowed.'
         echo 120
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
 
+    FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
     FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
@@ -193,8 +188,9 @@ lunaticfiles_probe() {
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse '<[Pp][[:space:]].*\[' '\[\(.*\)\]' <<< "$PAGE") && \
-            translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+        FILE_SIZE=$(parse '<[Pp][[:space:]].*\[' '\[\(.*\)\]' <<< "$PAGE") \
+            && FILE_SIZE=$(replace 'B' 'iB' <<< $FILE_SIZE) \
+            && translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
     fi
 
     if [[ $REQ_IN = *i* ]]; then

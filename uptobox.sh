@@ -104,7 +104,7 @@ uptobox_download() {
     local -r URL=$(replace '://www.' '://' <<< "$2")
     local -r BASE_URL='http://uptobox.com'
     local PAGE WAIT_TIME CODE PREMIUM CAPTCHA_DATA CAPTCHA_ID
-    local FORM_HTML FORM_OP FORM_USR FORM_ID FORM_FNAME FORM_RAND FORM_METHOD FORM_DD
+    local FORM_HTML FORM_OP FORM_USR FORM_ID FORM_FNAME FORM_RAND FORM_METHOD FORM_DD FORM_SZ
 
     if [ -n "$AUTH" ]; then
         uptobox_login "$AUTH" "$COOKIE_FILE" 'https://login.uptobox.com' || return
@@ -146,6 +146,7 @@ uptobox_download() {
     FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
     FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
     FORM_METHOD=$(parse_form_input_by_name_quiet 'method_free' <<< "$FORM_HTML")
+    FORM_SZ=$(parse_form_input_by_name_quiet 'file_size_real' <<< "$FORM_HTML")
 
     # Handle premium downloads
     if [ "$PREMIUM" = '1' ]; then
@@ -167,6 +168,12 @@ uptobox_download() {
             echo "$FILE_URL"
             return 0
         fi
+    fi
+
+    local -r MAX_SIZE=10737418240 # 10GiB
+    if [ "$FORM_SZ" -gt $MAX_SIZE ]; then
+        log_debug "File is bigger than $MAX_SIZE"
+        return $ERR_SIZE_LIMIT_EXCEEDED
     fi
 
     # Check for enforced download limits

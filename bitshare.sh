@@ -214,7 +214,7 @@ bitshare_upload() {
         bitshare_upload_form "$AUTH" "$1" "$2" "$3" || return
 
     else
-        log_error 'Unknow method (check --method parameter)'
+        log_error 'Unknown method (check --method parameter)'
         return $ERR_FATAL
     fi
 }

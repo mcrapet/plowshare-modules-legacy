@@ -30,6 +30,7 @@ MODULE_1FICHIER_DOWNLOAD_SUCCESSIVE_INTERVAL=
 MODULE_1FICHIER_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account
 LINK_PASSWORD,p,link-password,S=PASSWORD,Protect a link with a password
+FOLDER,,folder,s=FOLDER,Folder to upload files into (support subfolders)
 MESSAGE,d,message,S=MESSAGE,Set file message (is send with notification email)
 DOMAIN,,domain,N=ID,You can set domain ID to upload (ID can be found at http://www.1fichier.com/en/api/web.html)
 TOEMAIL,,email-to,e=EMAIL,<To> field for notification email
@@ -207,6 +208,66 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     echo "$FILE_NAME"
 }
 
+# Static function. Check if specified folder name is valid.
+# There cannot be two folder with the same name.
+# $1: folder name selected by user
+# $2: cookie file (logged into account)
+# $3: base url
+1fichier_check_folder() {
+    local -r NAME=$1
+    local -r COOKIE_FILE=$2
+    local -r BASE_URL=$3
+    local PAGE RESPONSE BASE DIR_ID DIR_NAMES
+
+    if match "[\"'\`\\<>\$]" "$NAME"; then
+        log_error "Folder may not contain the next characters: \"'\`\\<>\$"
+        return $ERR_FATAL
+    fi
+
+    # We begin in the root directory (DIR_ID=0)
+    DIR_ID=0
+
+    # Convert subdirectory names into an array.
+    IFS='/' read -a DIR_NAMES <<< "$NAME"
+
+    for BASE in "${DIR_NAMES[@]}"; do
+        # Skip empty names.
+        [ -z "$BASE" ] && continue
+
+        log_debug 'Getting folder data'
+        PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=$DIR_ID&oby=0&search=") || return
+
+        # Create folder if not exist
+        # class="dF"><a href="#" onclick="return false">$BASE<
+        if ! match "class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE<" "$PAGE"; then
+            log_debug "Creating folder: '$BASE'"
+
+            RESPONSE=$(curl -b "$COOKIE_FILE" -b 'LG=en' -L \
+                -d "mkdir=$BASE" \
+                -d "dir_id=$DIR_ID" \
+                "$BASE_URL/console/mkdir.pl") || return
+
+            if [ "$RESPONSE" != 'Folder created successfully' ]; then
+                if [ -z "$RESPONSE" ]; then
+                    log_error 'Could not create folder.'
+                else
+                    log_error "Create folder error: $RESPONSE"
+                fi
+                return $ERR_FATAL
+            fi
+
+            # Grab the page again to have the DIR_ID of the new directory
+            PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=$DIR_ID&oby=0&search=") || return
+        fi
+
+        # class=" directory" rel="$DIR_ID"><div class="dF"><a href="#" onclick="return false">$BASE<
+        DIR_ID=$(parse . "rel=\"\([[:digit:]]\+\)\"><div class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE<" <<< "$PAGE") || return
+    done
+
+    log_debug "DIR ID: '$DIR_ID'"
+    echo $DIR_ID
+}
+
 # Upload a file to 1fichier
 # $1: cookie file
 # $2: input file (with full path)
@@ -217,14 +278,13 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r FILE=$2
     local -r DESTFILE=$3
     local -r UPLOADURL='https://upload.1fichier.com'
-    local LOGIN_DATA S_ID RESPONSE DOWNLOAD_ID REMOVE_ID DOMAIN_ID
+    local LOGIN_DATA S_ID RESPONSE DOWNLOAD_ID REMOVE_ID DOMAIN_ID DIR_ID
 
     if CV=$(storage_get 'cookie_file'); then
         echo "$CV" >"$COOKIE_FILE"
 
         # Check for expired session
         PAGE=$(curl -b "$COOKIE_FILE" -b LG=en "https://1fichier.com/console/index.pl") || return
-        echo "$PAGE" >a
         if ! match '>[[:space:]]*\(My files\|Logout\)<' "$PAGE"; then
             log_error 'Expired session, delete cache entry'
             storage_set 'cookie_file'
@@ -242,15 +302,24 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         log_debug "session (new): '$SESS'"
     fi
 
+    if [ -n "$FOLDER" ]; then
+        if [ -n "$SESS" ]; then
+            DIR_ID=$(1fichier_check_folder "$FOLDER" "$COOKIE_FILE" 'https://1fichier.com') || return
+        else
+            log_error "Folder option cannot be used without an account."
+            return $ERR_FATAL
+        fi
+    fi
+
     S_ID=$(random ll 10)
 
-    # FIXME: See folders later -F 'did=0' /console/get_dirs_for_upload.pl
     RESPONSE=$(curl_with_log -b "$COOKIE_FILE" \
         --form-string "message=$MESSAGE" \
         --form-string "mail=$TOEMAIL" \
         -F "dpass=$LINK_PASSWORD" \
         -F "domain=${DOMAIN:-0}" \
         -F "file[]=@$FILE;filename=$DESTFILE" \
+        -F "did=$DIR_ID" \
         "$UPLOADURL/upload.cgi?id=$S_ID") || return
 
     RESPONSE=$(curl --header 'EXPORT:1' -b "$COOKIE_FILE" \

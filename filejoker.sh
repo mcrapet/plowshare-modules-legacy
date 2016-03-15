@@ -1,5 +1,5 @@
-# Plowshare salefiles.com module
-# by idleloop <idleloop@yahoo.com>, v1.3, Feb 2016
+# Plowshare filejoker.net module
+# by idleloop <idleloop@yahoo.com>, v1.2, Feb 2016
 #
 # This file is part of Plowshare.
 #
@@ -16,28 +16,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_SALEFILES_REGEXP_URL='http://\(www\.\)\?salefiles\.com/[[:alnum:]]\+/\?.*'
+MODULE_FILEJOKER_REGEXP_URL='https\?://\(www\.\)\?filejoker\.net/[[:alnum:]]\+'
 
-MODULE_SALEFILES_DOWNLOAD_OPTIONS=""
-MODULE_SALEFILES_DOWNLOAD_RESUME=yes
-MODULE_SALEFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
-MODULE_SALEFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
+MODULE_FILEJOKER_DOWNLOAD_OPTIONS=""
+MODULE_FILEJOKER_DOWNLOAD_RESUME=yes
+MODULE_FILEJOKER_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
+MODULE_FILEJOKER_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
-MODULE_SALEFILES_PROBE_OPTIONS=""
+MODULE_FILEJOKER_PROBE_OPTIONS=""
 
-# Output a salefiles file download URL
+# Output a filejoker file download URL
 # $1: cookie file (unused here)
-# $2: salefiles url
+# $2: filejoker url
 # stdout: real file download link
-salefiles_download() {
+filejoker_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
-    local -r BASE_URL='http://www.salefiles.com/'
+    local -r BASE_URL='https://www.filejoker.net/'
     local PAGE FILE_URL FILE_NAME WAIT_LINE WAIT_TIME FORM_HTML FORM_ID FORM_OP FORM_FILENAME FILE_NAME FORM_METHOD_F FORM_ACTION FORM_RAND
 
     # no login support
     #if [ -n "$AUTH_FREE" ]; then
-    #    salefiles_login "$AUTH_FREE" "$COOKIE_FILE" "$BASE_URL" || return
+    #    filejoker_login "$AUTH_FREE" "$COOKIE_FILE" "$BASE_URL" || return
     #    PAGE=$(curl -L -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
     #else
         PAGE=$(curl -L -b "COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
@@ -59,7 +59,7 @@ salefiles_download() {
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
 
-    FORM_HTML=$(grep_form_by_order "$PAGE" 2) || return
+    FORM_HTML=$(grep_form_by_name "$PAGE" 'F22') || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_FILENAME=$(parse_form_input_by_name 'fname' <<< "$FORM_HTML") || return
@@ -77,14 +77,18 @@ salefiles_download() {
         "$URL") || return
 
     # check for forced delay
-    WAIT_TIME=$(parse_quiet 'You have to wait .* till next download' \
-        'wait \([[:digit:]]\+\)' <<< "$PAGE")
+    if matchi 'Please wait .* until the next download' "$PAGE"; then
+        local HOURS MINS SECS
+        HOURS=$(echo "$PAGE" | \
+            parse_quiet 'Please wait .* until the next download' ' \([[:digit:]]\+\) hour')
+        MINS=$(echo "$PAGE" | \
+            parse_quiet 'Please wait .* until the next download' ' \([[:digit:]]\+\) minute')
+        SECS=$(echo "$PAGE" | \
+            parse_quiet 'Please wait .* until the next download' ', \([[:digit:]]\+\) second')
 
-    if [ -n "$WAIT_TIME" ]; then
         log_error 'Forced delay between downloads.'
-        # Note: Get rid of leading zeros so numbers will not be considered octal
-        echo $(( (WAIT_TIME + 1) * 60 ))
-        return $ERR_LINK_TEMP_UNAVAILABLE
+        echo $(( HOURS * 60 * 60 + MINS * 60 + SECS ))
+        return $ERR_LINK_TEMP_UNAVAILABLE    
     fi
 
     # Free user can't download large files.
@@ -93,7 +97,7 @@ salefiles_download() {
     fi
 
     # parse wait time
-    WAIT_TIME=$(parse_quiet 'Wait ' \
+    WAIT_TIME=$(parse_quiet 'Please Wait ' \
         'Wait <.\+>\([[:digit:]]\+\)<.\+> seconds' <<< "$PAGE") || return
 
     if [ -n "$WAIT_TIME" ]; then
@@ -104,13 +108,15 @@ salefiles_download() {
     # Note: emulate 'grep_form_by_id_quiet'
     FORM_HTML=$(grep_form_by_name "$PAGE" 'F1' 2>/dev/null)
 
+    log_debug $FORM_HTML
+
     if [ -n "$FORM_HTML" ]; then
         local RESP WORD ID CAPTCHA_DATA
 
-        if match 'RecaptchaOptions' "$FORM_HTML"; then
+        if match 'recaptcha_image' "$FORM_HTML"; then
             log_debug 'reCaptcha found'
             local CHALL
-            local -r PUBKEY='6LcjQ-ISAAAAACC5Ym052eCQ-BYtMs7wkoCXd3du'
+            local -r PUBKEY='6LetAu0SAAAAACCJkqZLvjNS4L7eSL8fGxr-Jzy2'
 
             RESP=$(recaptcha_process $PUBKEY) || return
             { read WORD; read CHALL; read ID; } <<< "$RESP"
@@ -125,29 +131,19 @@ salefiles_download() {
         log_debug "Captcha data: $CAPTCHA_DATA"
 
         FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
-        FORM_ACTION=$FORM_ID
+        #FORM_ACTION=$(parse_form_action <<< "$FORM_HTML") || return
         FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
         FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
 
-        PAGE=$(curl -i -b "$COOKIE_FILE" -c "$COOKIE_FILE" $CAPTCHA_DATA \
+        PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" $CAPTCHA_DATA \
             -F "op=$FORM_OP" -F "id=$FORM_ID" -F "rand=$FORM_RAND" \
             -F 'referer='    -F "method_free=$FORM_METHOD_F" \
             "$URL") || return
 
-        # Get error message, if any
-        ERR=$(parse_tag_quiet '<div class="err"' 'div' <<< "$PAGE")
-
-        if [ -n "$ERR" ]; then
-            if match 'Wrong captcha' "$ERR"; then
-                log_error 'Wrong captcha'
-                captcha_nack "$ID"
-                return $ERR_CAPTCHA
-            fi
-
-            log_debug 'Correct captcha'
-            captcha_ack "$ID"
-            log_error "Unexpected remote error: $ERR"
-            return $ERR_FATAL
+        if match 'Wrong Captcha' "$PAGE"; then
+            log_error 'Wrong captcha'
+            captcha_nack "$ID"
+            return $ERR_CAPTCHA
         fi
 
         log_debug 'Correct captcha'
@@ -158,15 +154,15 @@ salefiles_download() {
         return $ERR_FATAL
     fi
 
-    grep_http_header_location <<< "$PAGE" || return
+    parse_attr 'Download File' href <<< "$PAGE"
     echo "$FILE_NAME"
 }
 
 # Probe a download URL
 # $1: cookie file (unused here)
-# $2: salefiles.com url
+# $2: filejoker.net url
 # $3: requested capability list
-salefiles_probe() {
+filejoker_probe() {
     local -r REQ_IN=$3
     local PAGE REQ_OUT FILE_SIZE
 
@@ -178,7 +174,7 @@ salefiles_probe() {
     fi
 
     # The file link that you requested is incorrect.
-    if match 'Not Found' "$PAGE"; then
+    if ! match 'div class="name-size"' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
@@ -190,8 +186,9 @@ salefiles_probe() {
 
     if [[ $REQ_IN = *s* ]]; then
         FILE_SIZE=$(echo "$PAGE" | 
-            parse_all_quiet 'color:#4f4f4f' \
-            '>\([0-9\.]\+[[:space:]]\?[KkMG]\?B\)' 1) &&
+            parse_all 'name-size' \
+            '[^0-9\.]\([0-9\.]\+[[:space:]]\?[KkMG]\?[bB]\)' 0) &&
+            FILE_SIZE=$(replace 'b' 'B' <<< $FILE_SIZE) &&
             translate_size "${FILE_SIZE/,/}" && REQ_OUT="${REQ_OUT}s"
     fi
 

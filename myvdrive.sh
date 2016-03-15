@@ -385,7 +385,7 @@ myvdrive_upload() {
                 FILENAME_EXT="${FILENAME##*.}"
                 FILENAME_NAM="${FILENAME%.*}"
 
-                # Description doesen't appear anywhere
+                # Description doesn't appear anywhere
                 PAGE=$(curl -b "$COOKIE_FILE" \
                     -H 'X-Requested-With: XMLHttpRequest' \
                     -d "file_id=f_$FILE_ID" \
