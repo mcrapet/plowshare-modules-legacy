@@ -114,7 +114,11 @@ keep2share_download() {
         log_debug "token: '$TOKEN'"
 
         curl --head -b "sessid=$TOKEN" "$URL" | grep_http_header_location || return
-        MODULE_KEEP2SHARE_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(-J)
+
+        FILE_NAME=$(echo "$URL" | parse_quiet '/file/' 'file/[^/]*/\(.*\)')
+        log_debug "FILE_NAME:$FILE_NAME"
+        echo "$FILE_NAME"
+        #MODULE_KEEP2SHARE_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(-J)
         return 0
     fi
 
