@@ -77,7 +77,7 @@ keep2share_login() {
 keep2share_download() {
     local -r COOKIE_FILE=$1
     local -r API_URL='http://keep2share.cc/api/v1/'
-    local URL BASE_URL TOKEN FILE_NAME PRE_URL
+    local URL BASE_URL FILE_ID TOKEN FILE_NAME PRE_URL
     local PAGE FORM_HTML FORM_ID FORM_ACTION WAIT
 
     # get canonical URL and BASE_URL for this file
@@ -86,6 +86,7 @@ keep2share_download() {
     BASE_URL=${URL%/file*}
     readonly URL BASE_URL
 
+    FILE_ID=$(parse . 'file/\([^/]\+\)' <<< "$URL") || return
 
     # Premium download
     if TOKEN=$(storage_get 'token'); then
@@ -104,8 +105,12 @@ keep2share_download() {
 
         log_debug "token (cached): '$TOKEN'"
 
+        # Get filename from api
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'","ids":["'$FILE_ID'"]}' "${API_URL}GetFilesInfo") || return
+        FILE_NAME=$(parse_json_quiet 'name' <<< "$JSON")
+
         curl --head -b "sessid=$TOKEN" "$URL" | grep_http_header_location || return
-        MODULE_KEEP2SHARE_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(-J)
+        echo "$FILE_NAME"
         return 0
 
     elif [ -n "$AUTH" ]; then
@@ -113,8 +118,12 @@ keep2share_download() {
         storage_set 'token' "$TOKEN"
         log_debug "token: '$TOKEN'"
 
+        # Get filename from api
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'","ids":["'$FILE_ID'"]}' "${API_URL}GetFilesInfo") || return
+        FILE_NAME=$(parse_json_quiet 'name' <<< "$JSON")
+
         curl --head -b "sessid=$TOKEN" "$URL" | grep_http_header_location || return
-        MODULE_KEEP2SHARE_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(-J)
+        echo "$FILE_NAME"
         return 0
     fi
 
@@ -398,7 +407,7 @@ keep2share_upload() {
 # stdout: 1 capability per line
 #
 # Official API does not provide a anonymous check-link feature :(
-# $ curl --data '{"ids"=["816bef5d35245"]}' http://keep2share.cc/api/v1/GetFilesInfo
+# $ curl --data '{"ids":["816bef5d35245"]}' http://keep2share.cc/api/v1/GetFilesInfo
 keep2share_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
