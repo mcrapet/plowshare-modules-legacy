@@ -217,7 +217,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r NAME=$1
     local -r COOKIE_FILE=$2
     local -r BASE_URL=$3
-    local PAGE RESPONSE BASE DIR_ID DIR_NAMES
+    local PAGE RESPONSE BASE BASE_REPLACE DIR_ID DIR_NAMES
 
     if match "[\"'\`\\<>\$]" "$NAME"; then
         log_error "Folder may not contain the next characters: \"'\`\\<>\$"
@@ -237,9 +237,15 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         log_debug 'Getting folder data'
         PAGE=$(curl -b "$COOKIE_FILE" -b 'LG=en' "$BASE_URL/console/files.pl?dir_id=$DIR_ID&oby=0&search=") || return
 
+        # Replace [ and ] with \[ and \] for match and parse function
+        BASE_REPLACE="$BASE"
+        BASE_REPLACE=$(replace_all '[' '\[' <<< "$BASE_REPLACE")
+        BASE_REPLACE=$(replace_all ']' '\]' <<< "$BASE_REPLACE")
+        log_debug "Replace $BASE with $BASE_REPLACE for match and parse function"
+
         # Create folder if not exist
         # class="dF"><a href="#" onclick="return false">$BASE<
-        if ! match "class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE<" "$PAGE"; then
+        if ! match "class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE_REPLACE<" "$PAGE"; then
             log_debug "Creating folder: '$BASE'"
 
             RESPONSE=$(curl -b "$COOKIE_FILE" -b 'LG=en' -L \
@@ -261,7 +267,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         fi
 
         # class=" directory" rel="$DIR_ID"><div class="dF"><a href="#" onclick="return false">$BASE<
-        DIR_ID=$(parse . "rel=\"\([[:digit:]]\+\)\"><div class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE<" <<< "$PAGE") || return
+        DIR_ID=$(parse . "rel=\"\([[:digit:]]\+\)\"><div class=\"dF\"><a href=\"#\" onclick=\"return false\">$BASE_REPLACE<" <<< "$PAGE") || return
     done
 
     log_debug "DIR ID: '$DIR_ID'"
