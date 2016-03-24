@@ -241,7 +241,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         BASE_REPLACE="$BASE"
         BASE_REPLACE=$(replace_all '[' '\[' <<< "$BASE_REPLACE")
         BASE_REPLACE=$(replace_all ']' '\]' <<< "$BASE_REPLACE")
-        log_debug "Replace $BASE with $BASE_REPLACE for match and parse function"
+        log_debug "Replace '$BASE' with '$BASE_REPLACE' for match and parse function"
 
         # Create folder if not exist
         # class="dF"><a href="#" onclick="return false">$BASE<
@@ -249,7 +249,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
             log_debug "Creating folder: '$BASE'"
 
             RESPONSE=$(curl -b "$COOKIE_FILE" -b 'LG=en' -L \
-                -d "mkdir=$BASE" \
+                -d "mkdir=$(uri_encode_strict <<< "$BASE")" \
                 -d "dir_id=$DIR_ID" \
                 "$BASE_URL/console/mkdir.pl") || return
 
