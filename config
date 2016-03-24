@@ -12,7 +12,6 @@ billionuploads  | download | upload |        |      | probe |
 bitshare        | download | upload | delete |      | probe |
 catshare        | download |        |        |      | probe |
 chomikuj        | download | upload |        | list | probe |
-cramit          | download | upload | delete | list | probe |
 crocko          | download | upload |        | list | probe |
 data_hu         | download | upload | delete |      |       |
 dataport_cz     | download | upload | delete |      |       |
