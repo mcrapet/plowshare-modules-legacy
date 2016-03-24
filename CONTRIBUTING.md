@@ -1,15 +1,22 @@
 ## How to contribute to Plowshare legacy modules
 
-### Foreword
+#### Foreword
 
 This documentation is related to [Plowshare legacy modules](https://github.com/mcrapet/plowshare-modules-legacy), not [Plowshare core](https://github.com/mcrapet/plowshare).
 Modules and core are separated in two different git repositories.
 
-### Disclaimer
+Plowshare without modules is worthless!
 
-Generated logs can contain your credentials (account login data specified with `-a` or `-b` command line switches). Be sure to remove them before posting.
+#### **How could you help us ?**
 
-#### **Did you find a bug?**
+- [x] Report dead hosters
+- [x] Report broken modules
+- [x] Report misspellings, typos
+- [x] Contribute to new modules (one hoster equal one plowshare module)
+
+You may or may not provide a `.patch` depending your skills.
+
+#### **How to submit a bug ?**
 
 Before reporting issue, please ensure the following points:
 
@@ -34,8 +41,14 @@ plowdown -v4 -r0 --no-plowsharerc --no-color <url> &>log.txt
 plowup -v4 -r0 --no-plowsharerc --no-color <module> <filename> &>log.txt
 ```
 
-#### **Did you write a patch that fixes a bug?**
+*Attention*: Generated logs can contain your credentials (account login data specified with `-a` or `-b` command line switches).
+Be sure to remove them before posting.
 
-* Open a new GitHub pull request with the patch.
+#### **How to submit a patch ?**
+
+Before submitting your patch, check that your work complies with
+[code policy](https://github.com/mcrapet/plowshare/wiki/Modules) (refer to last chapters).
+
+If this is okay, you can create a [new pull request](https://github.com/mcrapet/plowshare-modules-legacy/pulls/).
 
 Thanks!
