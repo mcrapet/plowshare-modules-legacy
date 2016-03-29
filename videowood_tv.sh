@@ -135,6 +135,5 @@ videowood_tv_upload() {
     fi
 
     JSON=$(curl "$BASE_URL/upload-urls/$UPLOAD_ID?format=json&names=false") || return
-    JSON=$(replace_all '\/' '/' <<< "$JSON")
     parse_json 'url' <<< "$JSON" || return
 }
