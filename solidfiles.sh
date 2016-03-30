@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_SOLIDFILES_REGEXP_URL='https\?://\(www\.\)\?solidfiles\.com/\(d\|folder\)/'
+MODULE_SOLIDFILES_REGEXP_URL='https\?://\(www\.\)\?solidfiles\.com/\(d\|folder\|v\)/'
 
 MODULE_SOLIDFILES_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account (used to download private files)"
@@ -132,14 +132,14 @@ solidfiles_download() {
         solidfiles_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" || return
     fi
 
-    PAGE=$(curl -L -b "$COOKIE_FILE" "$URL") || return
+    PAGE=$(curl -L -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
 
-    if match 'Not found' "$PAGE"; then
+    if match 'Not found\|>404<' "$PAGE"; then
         log_error 'File is missing or marked as private.'
         return $ERR_LINK_DEAD
     fi
 
-    FILE_URL=$(parse_attr 'ddl-text' 'href' <<< "$PAGE") || return
+    FILE_URL=$(parse_attr 'id=[''"]\?download-btn[''"]\?' 'href' <<< "$PAGE") || return
 
     if [ "$FILE_URL" = 'None' ]; then
         return $ERR_LINK_DEAD
@@ -208,7 +208,7 @@ solidfiles_upload() {
         -F "file=@$FILE;filename=$DESTFILE" \
         "$BASE_URL/upload/process/$FOLDER_ID/") || return
 
-    if ! match '^[[:alnum:]]\{10\}$' "$PAGE" || [ "${#PAGE}" != 10 ]; then
+    if ! match '^[[:alnum:]]\{13\}$' "$PAGE" || [ "${#PAGE}" != 13 ]; then
         log_error 'Upload failed.'
         return $ERR_FATAL
     else
@@ -244,14 +244,14 @@ solidfiles_probe() {
     local -r REQ_IN=$3
     local PAGE FILE_URL FILE_SIZE REQ_OUT
 
-    PAGE=$(curl -L "$URL") || return
+    PAGE=$(curl -L "$URL" | break_html_lines) || return
 
-    if match 'Not found' "$PAGE"; then
+    if match 'Not found\|>404<' "$PAGE"; then
         log_error 'File is missing or marked as private.'
         return $ERR_LINK_DEAD
     fi
 
-    FILE_URL=$(parse_attr 'download-button' 'href' <<< "$PAGE") || return
+    FILE_URL=$(parse_attr 'id=[''"]\?download-btn[''"]\?' 'href' <<< "$PAGE") || return
 
     if [ "$FILE_URL" = 'None' ]; then
         return $ERR_LINK_DEAD
@@ -260,12 +260,13 @@ solidfiles_probe() {
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        parse 'software_filename' "'\([^']\+\)'" <<< "$PAGE" &&
+        parse 'class=[''"]\?dl[''"]\?' "^\([^<]\+\)" 1 <<< "$PAGE" | strip &&
             REQ_OUT="${REQ_OUT}f"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        parse 'software_filesize' '[[:space:]]\([[:digit:]]\+\)' <<< "$PAGE" &&
+        FILE_SIZE=$(parse 'class=[''"]\?dl[''"]\?' ">\(.\+B\)[[:space:]]-" 2 <<< \
+            "$PAGE" | sed 's/\xC2\xA0//g') && translate_size "$FILE_SIZE" && \
             REQ_OUT="${REQ_OUT}s"
     fi
 
