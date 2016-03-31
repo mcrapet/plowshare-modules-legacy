@@ -25,6 +25,8 @@ MODULE_JHEBERG_UPLOAD_REMOTE_SUPPORT=no
 MODULE_JHEBERG_LIST_OPTIONS=""
 MODULE_JHEBERG_LIST_HAS_SUBFOLDERS=no
 
+MODULE_JHEBERG_PROBE_OPTIONS=
+
 # Upload a file to Jheberg.net
 # $1: cookie file (for account only)
 # $2: input file (with full path)

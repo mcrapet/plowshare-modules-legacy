@@ -27,6 +27,8 @@ MODULE_NOWDOWNLOAD_CO_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account"
 MODULE_NOWDOWNLOAD_CO_UPLOAD_REMOTE_SUPPORT=yes
 
+MODULE_NOWDOWNLOAD_CO_PROBE_OPTIONS=
+
 # Static function. Proceed with login
 # $1: authentication
 # $2: cookie file
