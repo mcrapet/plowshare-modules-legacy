@@ -69,11 +69,11 @@ openload_io_probe() {
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        parse_tag 'id="filename"' span <<< "$PAGE" && REQ_OUT="${REQ_OUT}f"
+        parse_tag 'class="other-title-bold"' h3 <<< "$PAGE" && REQ_OUT="${REQ_OUT}f"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse_tag 'class="count"' span <<< "$PAGE") && \
+        FILE_SIZE=$(parse 'class="content-text"' 'size:\([^<]*\)' <<< "$PAGE") && \
             translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
     fi
 
