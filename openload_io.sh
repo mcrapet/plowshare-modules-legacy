@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_OPENLOAD_IO_REGEXP_URL='https\?://openload\.io/'
+MODULE_OPENLOAD_IO_REGEXP_URL='https\?://openload\.\(co\|io\)/'
 
 MODULE_OPENLOAD_IO_DOWNLOAD_OPTIONS=""
 MODULE_OPENLOAD_IO_DOWNLOAD_RESUME=yes
@@ -25,9 +25,9 @@ MODULE_OPENLOAD_IO_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_OPENLOAD_IO_PROBE_OPTIONS=""
 
-# Output a openload.io file download URL
+# Output a openload_io file download URL
 # $1: cookie file (unused here)
-# $2: openload.io url
+# $2: openload_io url
 # stdout: real file download link
 openload_io_download() {
     local -r URL=$2
@@ -48,12 +48,11 @@ openload_io_download() {
 
     echo "$FILE_URL"
     echo "$FILE_NAME"
-    return 0
 }
 
 # Probe a download URL
 # $1: cookie file (unused here)
-# $2: openload.io url
+# $2: openload_io url
 # $3: requested capability list
 # stdout: 1 capability per line
 openload_io_probe() {
@@ -79,5 +78,4 @@ openload_io_probe() {
     fi
 
     echo $REQ_OUT
-    return 0
 }
