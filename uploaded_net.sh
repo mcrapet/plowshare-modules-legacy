@@ -225,7 +225,13 @@ uploaded_net_download() {
         return $ERR_FATAL
     fi
 
-    REDIR_URL=$(curl --head "$URL" | grep_http_header_location_quiet)
+    PAGE=$(curl -i "$URL") || return
+
+    if match '>Page not found<' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    fi
+
+    REDIR_URL=$(grep_http_header_location_quiet <<< "$PAGE")
     if [ -n "$REDIR_URL" ]; then
         # Check for direct download
         if match '/dl/' "$REDIR_URL"; then
@@ -235,10 +241,6 @@ uploaded_net_download() {
             echo "$FILE_NAME"
             return 0
 
-        # Page not found
-        # The requested file isn't available anymore!
-        elif match "$BASE_URL/\(404\|410\)" "$REDIR_URL"; then
-            return $ERR_LINK_DEAD
         else
             log_error "remote suspicious redirection: $REDIR_URL"
         fi
@@ -591,9 +593,9 @@ uploaded_net_delete() {
         return $ERR_FATAL
     fi
 
-    # Page not found
-    # The requested file isn't available anymore!
-    if match "$BASE_URL/\(404\|410\)" "$URL"; then
+    PAGE=$(curl -L "$URL") || return
+
+    if match '>Page not found<' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
@@ -643,13 +645,14 @@ uploaded_net_probe() {
 
     URL=$(uploaded_net_get_canonical_url "$2") || return
 
-    # Page not found
-    # The requested file isn't available anymore!
-    [[ $URL = */404 || $URL = */410/* ]]  && return $ERR_LINK_DEAD
-    REQ_OUT=c
-
     FILE_ID=$(uploaded_net_extract_file_id "$URL" "$BASE_URL") || return
     PAGE=$(curl --location "$BASE_URL/file/$FILE_ID/status") || return
+
+    if match '>Page not found<' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    fi
+
+    REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
         first_line <<< "$PAGE" && REQ_OUT="${REQ_OUT}f"
