@@ -63,7 +63,7 @@ netload_in      | download | upload |        | list | probe |
 nitroflare      | download |        |        |      | probe |
 nowdownload_co  | download | upload |        |      | probe |
 oboom           | download | upload |        | list | probe |
-openload_io     | download |        |        |      | probe |
+openload_io     | download | upload |        |      | probe |
 pastebin        |          |        |        | list |       |
 promptfile      | download |        |        |      | probe |
 rapidgator      | download | upload | delete | list | probe |
