@@ -157,7 +157,7 @@ openload_io_check_folder() {
 
     # Only backslashes in a folder name cause problems.
     if match "[\\]" "$NAME"; then
-        log_error "Folder should not contains backslash characters: \\"
+        log_error 'Folder should not contains backslash characters: \\'
         return $ERR_FATAL
     fi
 
