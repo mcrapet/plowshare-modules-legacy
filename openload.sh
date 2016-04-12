@@ -1,5 +1,6 @@
-# Plowshare openload.io module
+# Plowshare openload.co module
 # Copyright (c) 2015 ljsdoug <sdoug@inbox.com>
+# Copyright (c) 2016 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -16,19 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_OPENLOAD_IO_REGEXP_URL='https\?://openload\.\(co\|io\)/'
+MODULE_OPENLOAD_REGEXP_URL='https\?://openload\.\(co\|io\)/'
 
-MODULE_OPENLOAD_IO_DOWNLOAD_OPTIONS=""
-MODULE_OPENLOAD_IO_DOWNLOAD_RESUME=yes
-MODULE_OPENLOAD_IO_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
-MODULE_OPENLOAD_IO_DOWNLOAD_SUCCESSIVE_INTERVAL=
+MODULE_OPENLOAD_DOWNLOAD_OPTIONS=""
+MODULE_OPENLOAD_DOWNLOAD_RESUME=yes
+MODULE_OPENLOAD_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
+MODULE_OPENLOAD_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
-MODULE_OPENLOAD_IO_UPLOAD_OPTIONS="
+MODULE_OPENLOAD_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account
 FOLDER,,folder,s=FOLDER,Folder to upload files into (support subfolders)"
-MODULE_OPENLOAD_IO_UPLOAD_REMOTE_SUPPORT=no
+MODULE_OPENLOAD_UPLOAD_REMOTE_SUPPORT=no
 
-MODULE_OPENLOAD_IO_PROBE_OPTIONS=""
+MODULE_OPENLOAD_PROBE_OPTIONS=""
 
 # Static function. Proceed with login
 # $1: authentication
@@ -36,7 +37,7 @@ MODULE_OPENLOAD_IO_PROBE_OPTIONS=""
 # $3: base URL
 # $4: API URL
 # stdout: account type ("free") and api data ("$API_DATA") with login and key on success.
-openload_io_login() {
+openload_login() {
     local -r AUTH=$1
     local -r COOKIE_FILE=$2
     local -r BASE_URL=$3
@@ -96,11 +97,11 @@ openload_io_login() {
     echo "$API_DATA"
 }
 
-# Output a openload_io file download URL
+# Output a openload file download URL
 # $1: cookie file (unused here)
-# $2: openload_io url
+# $2: openload url
 # stdout: real file download link
-openload_io_download() {
+openload_download() {
     local -r URL=$2
     local PAGE WAIT FILE_URL FILE_NAME
 
@@ -124,7 +125,7 @@ openload_io_download() {
 # Static function. Check if a cookie doesn't expired.
 # $1: cookie file
 # $2: base URL
-openload_io_check_cookie() {
+openload_check_cookie() {
     local -r COOKIE_FILE=$1
     local -r BASE_URL=$2
     local LOCATION
@@ -146,7 +147,7 @@ openload_io_check_cookie() {
 # $4: API URL
 # $5: API Data
 # stdout: folder data
-openload_io_check_folder() {
+openload_check_folder() {
     local -r NAME=$1
     local -r COOKIE_FILE=$2
     local -r BASE_URL=$3
@@ -189,7 +190,7 @@ openload_io_check_folder() {
             # but for the safety check if it's valid, otherwise renew session. This
             # check is only relevant when --cache=shared, otherwise we will have
             # always a valid cookie file during folder creation.
-            openload_io_check_cookie "$COOKIE_FILE" "$BASE_URL" || return
+            openload_check_cookie "$COOKIE_FILE" "$BASE_URL" || return
 
             JSON=$(curl -b "$COOKIE_FILE" -d "name=$(uri_encode_strict <<< "$FOLDER")" \
                 -d "id=$PARENT_ID" "$BASE_URL/filemanager/createfolder" \
@@ -213,12 +214,12 @@ openload_io_check_folder() {
     echo $FOLDER_DATA
 }
 
-# Upload a file to openload_io
+# Upload a file to openload
 # $1: cookie file
 # $2: input file (with full path)
 # $3: remote filename
 # stdout: download link
-openload_io_upload() {
+openload_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
@@ -251,11 +252,11 @@ openload_io_upload() {
     fi
 
     if [ -n "$AUTH" ]; then
-        AA=$(openload_io_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" "$API_URL") || return
+        AA=$(openload_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" "$API_URL") || return
         { read ACCOUNT; read API_DATA; } <<< "$AA"
 
         if [ -n "$FOLDER" ]; then
-            FOLDER_DATA=$(openload_io_check_folder "$FOLDER" "$COOKIE_FILE" \
+            FOLDER_DATA=$(openload_check_folder "$FOLDER" "$COOKIE_FILE" \
                 "$BASE_URL" "$API_URL" "$API_DATA") || return
         fi
     fi
@@ -282,15 +283,21 @@ openload_io_upload() {
 
 # Probe a download URL
 # $1: cookie file (unused here)
-# $2: openload_io url
+# $2: openload url
 # $3: requested capability list
 # stdout: 1 capability per line
-openload_io_probe() {
-    local -r URL=$2
+openload_probe() {
+    local URL=$2
     local -r REQ_IN=$3
-    local PAGE REQ_OUT FILE_SIZE
+    local -r BASE_URL='https://openload.co'
+    local FILE_ID PAGE REQ_OUT FILE_SIZE
 
-    PAGE=$(curl -L "$URL") || return
+    FILE_ID=$(parse_quiet . 'f/\([[:alnum:]]*\)' <<< "$URL")
+    if [ -n "$FILE_ID" ] && [ "$FILE_ID" != "$BASE_URL" ]; then
+        URL="$BASE_URL/f/$FILE_ID"
+    fi
+
+    PAGE=$(curl "$URL") || return
 
     if match "<p class=\"lead\">We can't find the file you are looking for" "$PAGE"; then
         return $ERR_LINK_DEAD
@@ -305,6 +312,11 @@ openload_io_probe() {
     if [[ $REQ_IN = *s* ]]; then
         FILE_SIZE=$(parse 'class="content-text"' 'size:\([^<]*\)' <<< "$PAGE") && \
             translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+    fi
+
+    if [[ $REQ_IN = *v* ]]; then
+        echo "$URL"
+        REQ_OUT="${REQ_OUT}v"
     fi
 
     echo $REQ_OUT
