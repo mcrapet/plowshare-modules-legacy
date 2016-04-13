@@ -1,5 +1,5 @@
 # Plowshare tempsend.com module
-# Copyright (c) 2014 Plowshare team
+# Copyright (c) 2014-2016 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -27,6 +27,8 @@ MODULE_TEMPSEND_UPLOAD_OPTIONS="
 NOSSL,,nossl,,Use HTTP upload url instead of HTTPS
 TTL,,ttl,n=SECS,Expiration period (in seconds). Default is 86400 (one day)."
 MODULE_TEMPSEND_UPLOAD_REMOTE_SUPPORT=no
+
+MODULE_TEMPSEND_PROBE_OPTIONS=""
 
 # Output a tempsend.com file download URL
 # $1: cookie file (unused here)
@@ -96,4 +98,40 @@ tempsend_upload() {
     fi
 
     return $ERR_FATAL
+}
+
+# Probe a download URL.
+# $1: cookie file (unused here)
+# $2: tempsend.com url
+# $3: requested capability list
+# stdout: 1 capability per line
+tempsend_probe() {
+    local -r URL=$2
+    local -r REQ_IN=$3
+    local PAGE REQ_OUT FID FILE_NAME FILE_SIZE
+
+    PAGE=$(curl -L "$URL") || return
+
+    if ! match '<h1>Download</h1>' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    fi
+
+    REQ_OUT=c
+
+    if [[ $REQ_IN = *f* ]]; then
+        FILE_NAME=$(parse_tag '="Download[[:space:]]' a <<< "$PAGE") && \
+            echo "$FILE_NAME" && REQ_OUT="${REQ_OUT}f"
+    fi
+
+    if [[ $REQ_IN = *i* ]]; then
+        FID=$(parse . '/\([[:alnum:]]*\)$' <<< "$URL") && \
+            echo "$FID" && REQ_OUT="${REQ_OUT}i"
+    fi
+
+    if [[ $REQ_IN = *s* ]]; then
+        FILE_SIZE=$(parse '[[:digit:]][[:space:]]downloads<' '^[^[:space:]]*[[:space:]]-[[:space:]]*\([^-]\+\)' <<< "$PAGE") && \
+        translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+    fi
+
+    echo $REQ_OUT
 }

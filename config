@@ -78,7 +78,7 @@ sharehost       | download |        |        |      | probe |
 shareonline_biz | download | upload |        |      | probe |
 sockshare       | download | upload | delete | list | probe |
 solidfiles      | download | upload |        | list | probe |
-tempsend        | download | upload |        |      |       |
+tempsend        | download | upload |        |      | probe |
 tempshare       | download |        |        |      | probe |
 thefilebay      | download | upload |        |      | probe |
 turbobit        | download | upload | delete | list | probe |
