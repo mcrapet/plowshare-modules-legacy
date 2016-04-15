@@ -26,8 +26,10 @@ MODULE_OPENLOAD_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_OPENLOAD_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account
-FOLDER,,folder,s=FOLDER,Folder to upload files into (support subfolders)"
-MODULE_OPENLOAD_UPLOAD_REMOTE_SUPPORT=no
+FOLDER,,folder,s=FOLDER,Folder to upload files into (support subfolders)
+ASYNC,,async,,Asynchronous remote upload (only start upload, don't wait for link)
+HEADER,,header,l=LIST,Header for a remote link (comma separated)"
+MODULE_OPENLOAD_UPLOAD_REMOTE_SUPPORT=yes
 
 MODULE_OPENLOAD_PROBE_OPTIONS=""
 
@@ -157,7 +159,7 @@ openload_check_folder() {
     local FOLDER_ID FOLDER_LINE PARENT_ID STATUS
 
     # Only backslashes in a folder name cause problems.
-    if match "[\\]" "$NAME"; then
+    if match '\\' "$NAME"; then
         log_error 'Folder should not contains backslash characters: \\'
         return $ERR_FATAL
     fi
@@ -227,28 +229,47 @@ openload_upload() {
     local -r API_URL='https://api.openload.co/1'
     local MAX_SIZE MSG SIZE AA ACCOUNT API_DATA FOLDER_DATA UPLOAD_URL JSON STATUS
 
+    # Sanity checks
     if [ -z "$AUTH" ]; then
         if [ -n "$FOLDER" ]; then
             log_error 'You must be registered to use folders.'
             return $ERR_LINK_NEED_PERMISSIONS
+
+        elif match_remote_url "$FILE"; then
+            log_error 'You must be registered to do remote uploads.'
+            return $ERR_LINK_NEED_PERMISSIONS
+
+        elif [ -n "$HEADER" ]; then
+            log_error 'You must be registered to use header for remote link.'
+            return $ERR_LINK_NEED_PERMISSIONS
         fi
     fi
 
-    # Note: Media files are autoconverted and they are limited to max 10 GiB size,
-    #       normal files are limited to max 1 GiB size. Extensions for media files
-    #       were taken arbitrary.
-    if match '\.\(avi\|mkv\|mpg\|mpeg\|vob\|wmv\|flv\|mp4\|mov\|m2v\|divx\|xvid\|3gp\|webm\|og[vg]\)$' "$DESTFILE"; then
-        MAX_SIZE=10737418240 # 10GiB
-        MSG='Media file'
-    else
-        MAX_SIZE=1073741824 # 1GiB
-        MSG='Normal file'
+    if [ -n "$ASYNC" ]; then
+        if ! match_remote_url "$FILE"; then
+            log_error 'Cannot upload local files asynchronously.'
+            return $ERR_BAD_COMMAND_LINE
+        fi
     fi
 
-    SIZE=$(get_filesize "$FILE")
-    if [ $SIZE -gt $MAX_SIZE ]; then
-        log_debug "$MSG is bigger than $MAX_SIZE"
-        return $ERR_SIZE_LIMIT_EXCEEDED
+    # File size check
+    if ! match_remote_url "$FILE"; then
+        # Note: Media files are autoconverted and they are limited to max 10 GiB size,
+        #       normal files are limited to max 1 GiB size. Extensions for media files
+        #       were taken arbitrary.
+        if match '\.\(avi\|mkv\|mpg\|mpeg\|vob\|wmv\|flv\|mp4\|mov\|m2v\|divx\|xvid\|3gp\|webm\|og[vg]\)$' "$DESTFILE"; then
+            MAX_SIZE=10737418240 # 10GiB
+            MSG='Media file'
+        else
+            MAX_SIZE=1073741824 # 1GiB
+            MSG='Normal file'
+        fi
+
+        SIZE=$(get_filesize "$FILE")
+        if [ $SIZE -gt $MAX_SIZE ]; then
+            log_debug "$MSG is bigger than $MAX_SIZE"
+            return $ERR_SIZE_LIMIT_EXCEEDED
+        fi
     fi
 
     if [ -n "$AUTH" ]; then
@@ -261,24 +282,89 @@ openload_upload() {
         fi
     fi
 
-    # Note: Anonymous and free accounts uploading are the same. They only differ
-    #       in absence of $API_DATA and $FOLDER_DATA.
-    UPLOAD_URL=$(curl $API_DATA $FOLDER_DATA "$API_URL/file/ul" \
-        | parse_json 'url') || return
+    # Upload local file
+    if ! match_remote_url "$FILE"; then
+        # Note: Anonymous and free accounts uploading are the same. They only differ
+        #       in absence of $API_DATA and $FOLDER_DATA.
+        UPLOAD_URL=$(curl $API_DATA $FOLDER_DATA "$API_URL/file/ul" \
+            | parse_json 'url') || return
 
-    JSON=$(curl_with_log \
-        -F "file1=@$FILE;filename=$DESTFILE" \
-        "$UPLOAD_URL") || return
+        JSON=$(curl_with_log \
+            -F "file1=@$FILE;filename=$DESTFILE" \
+            "$UPLOAD_URL") || return
 
-    STATUS=$(parse_json 'status' <<< "$JSON") || return
+        STATUS=$(parse_json 'status' <<< "$JSON") || return
 
-    if [ "$STATUS" != '200' ]; then
-        MSG=$(parse_json_quiet 'msg' <<< "$JSON")
-        log_error "Unexpected status ($STATUS): $MSG"
-        return $ERR_FATAL
+        if [ "$STATUS" != '200' ]; then
+            MSG=$(parse_json_quiet 'msg' <<< "$JSON")
+            log_error "Unexpected status $STATUS: $MSG"
+            return $ERR_FATAL
+        fi
+
+        parse_json 'url' <<< "$JSON" || return
+
+    # Upload remote file
+    else
+        local HEADER_DATA FILE_ID TRY BYTES_LOADED BYTES_TOTAL
+
+        # Header data don't have to be send, but I need to enclose it in double quotes
+        # in curl command, otherwise it won't work. Here is just empty dummy header.
+        HEADER_DATA="-d headers="
+
+        if [ -n "$HEADER" ]; then
+            # Header entries must be separated by newline
+            HEADER_DATA="$(IFS=$'\n'; echo "${HEADER[*]}")"
+            HEADER_DATA="-d headers=$HEADER_DATA"
+        fi
+
+        # Add remote upload to queue
+        JSON=$(curl $API_DATA $FOLDER_DATA "$HEADER_DATA" \
+            -d "url=$FILE" "$API_URL/remotedl/add") || return
+
+        STATUS=$(parse_json 'status' <<< "$JSON") || return
+
+        if [ "$STATUS" != '200' ]; then
+            MSG=$(parse_json_quiet 'msg' <<< "$JSON")
+            log_error "Unexpected status $STATUS: $MSG"
+            return $ERR_FATAL
+        fi
+
+        # If this is an async upload, we are done
+        if [ -n "$ASYNC" ]; then
+            log_error 'Once remote upload completed, check your account for link.'
+            return $ERR_ASYNC_REQUEST
+        fi
+
+        FILE_ID=$(parse_json 'id' <<< "$JSON") || return
+
+        # Keep checking progress, arbitrary 10000 times if not finished.
+        TRY=0
+        while (( TRY++ < 10000 )); do
+            JSON=$(curl $API_DATA "$API_URL/remotedl/status" \
+                -d 'limit=1' -d "id=$FILE_ID") || return
+            JSON=$(parse . '"result":\({.*}\)' <<< "$JSON") || return
+            STATUS=$(parse_json 'status' <<< "$JSON") || return
+
+            if [ "$STATUS" == 'new' -o "$STATUS" == 'downloading' ]; then
+                log_debug "Wait for server to download the file... [$TRY]"
+                BYTES_LOADED=$(parse_json_quiet 'bytes_loaded' <<< "$JSON")
+                BYTES_TOTAL=$(parse_json_quiet 'bytes_total' <<< "$JSON")
+                if [[ $BYTES_LOADED =~ ^[0-9]+$ && $BYTES_TOTAL =~ ^[0-9]+$ ]]; then
+                    log_debug "Downloaded $(( BYTES_LOADED * 100 / BYTES_TOTAL ))% : $BYTES_LOADED / $BYTES_TOTAL bytes"
+                fi
+                wait 15 || return # arbitrary, short wait time
+            elif [ "$STATUS" == 'finished' ]; then
+                parse_json 'url' <<< "$JSON" || return
+                break
+            elif [ "$STATUS" == 'error' ]; then
+                log_error "Upload error."
+                return $ERR_FATAL
+            else
+                log_error "Unexpected status: $STATUS"
+                return $ERR_FATAL
+            fi
+        done
     fi
-
-    parse_json 'url' <<< "$JSON" || return
 }
 
 # Probe a download URL
