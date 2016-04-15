@@ -227,7 +227,8 @@ openload_upload() {
     local -r DESTFILE=$3
     local -r BASE_URL='https://openload.co'
     local -r API_URL='https://api.openload.co/1'
-    local MAX_SIZE MSG SIZE AA ACCOUNT API_DATA FOLDER_DATA UPLOAD_URL JSON STATUS
+    local MAX_SIZE MSG SIZE SHA1_DATA AA ACCOUNT
+    local API_DATA FOLDER_DATA UPLOAD_URL JSON STATUS
 
     # Sanity checks
     if [ -z "$AUTH" ]; then
@@ -252,7 +253,7 @@ openload_upload() {
         fi
     fi
 
-    # File size check
+    # File size check, compute sha1 sum.
     if ! match_remote_url "$FILE"; then
         # Note: Media files are autoconverted and they are limited to max 10 GiB size,
         #       normal files are limited to max 1 GiB size. Extensions for media files
@@ -270,6 +271,12 @@ openload_upload() {
             log_debug "$MSG is bigger than $MAX_SIZE"
             return $ERR_SIZE_LIMIT_EXCEEDED
         fi
+
+        # If appropriate API version is available then compute sha1 sum.
+        if [ $PLOWSHARE_API_VERSION -ge 4 ]; then
+            SHA1_DATA=$(sha1_file "$FILE") || return
+            SHA1_DATA="-d sha1=$SHA1_DATA"
+        fi
     fi
 
     if [ -n "$AUTH" ]; then
@@ -286,7 +293,7 @@ openload_upload() {
     if ! match_remote_url "$FILE"; then
         # Note: Anonymous and free accounts uploading are the same. They only differ
         #       in absence of $API_DATA and $FOLDER_DATA.
-        UPLOAD_URL=$(curl $API_DATA $FOLDER_DATA "$API_URL/file/ul" \
+        UPLOAD_URL=$(curl $API_DATA $FOLDER_DATA $SHA1_DATA "$API_URL/file/ul" \
             | parse_json 'url') || return
 
         JSON=$(curl_with_log \
