@@ -80,6 +80,7 @@ sockshare       | download | upload | delete | list | probe |
 solidfiles      | download | upload |        | list | probe |
 tempsend        | download | upload |        |      | probe |
 tempshare       | download |        |        |      | probe |
+tezfiles        | download |        |        |      | probe |
 thefilebay      | download | upload |        |      | probe |
 turbobit        | download | upload | delete | list | probe |
 uloz_to         | download |        |        |      | probe |
