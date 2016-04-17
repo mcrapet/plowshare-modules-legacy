@@ -1,5 +1,5 @@
 # Plowshare ulozto.net module
-# Copyright (c) 2016 Raziel-23
+# Copyright (c) 2016 Plowshare team
 #
 # This file is part of Plowshare.
 #
