@@ -91,13 +91,13 @@ vidzi_tv_upload() {
 
     PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=upload") || return
     FORM_HTML=$(grep_form_by_name "$PAGE" 'file') || return
-    FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
-    FORM_UTYPE=$(parse_form_input_by_name 'upload_type' <<< "$PAGE") || return
-    FORM_SESS=$(parse_form_input_by_name_quiet 'sess_id' <<< "$PAGE")
-    FORM_SRV_TMP=$(parse_form_input_by_name 'srv_tmp_url' <<< "$PAGE") || return
-    FORM_SRV_ID=$(parse_form_input_by_name 'srv_id' <<< "$PAGE") || return
-    FORM_DSK_ID=$(parse_form_input_by_name 'disk_id' <<< "$PAGE") || return
-    FORM_BUTTON=$(parse_form_input_by_name 'submit_btn' <<< "$PAGE") || return
+    FORM_ACTION=$(parse_form_action <<< "$FORM_HTML") || return
+    FORM_UTYPE=$(parse_form_input_by_name 'upload_type' <<< "$FORM_HTML") || return
+    FORM_SESS=$(parse_form_input_by_name_quiet 'sess_id' <<< "$FORM_HTML")
+    FORM_SRV_TMP=$(parse_form_input_by_name 'srv_tmp_url' <<< "$FORM_HTML") || return
+    FORM_SRV_ID=$(parse_form_input_by_name 'srv_id' <<< "$FORM_HTML") || return
+    FORM_DSK_ID=$(parse_form_input_by_name 'disk_id' <<< "$FORM_HTML") || return
+    FORM_BUTTON=$(parse_form_input_by_name 'submit_btn' <<< "$FORM_HTML") || return
 
     # "reg"
     USER_TYPE=$(parse 'var utype' "='\([^']*\)" <<< "$PAGE") || return
@@ -120,7 +120,7 @@ vidzi_tv_upload() {
     PAGE=$(curl_with_log \
         -F "upload_type=$FORM_UTYPE" \
         -F "sess_id=$FORM_SESS" \
-        -F "srv_tmp_url=$FORM_TMP_SRV" \
+        -F "srv_tmp_url=$FORM_SRV_TMP" \
         -F "srv_id=$FORM_SRV_ID" \
         -F "disk_id=$FORM_DSK_ID" \
         -F "file=@$FILE;filename=$DESTFILE" \
