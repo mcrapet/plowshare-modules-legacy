@@ -142,7 +142,7 @@ zippyshare_download() {
     esac
 
     JS=$(sed -n '/id="dlbutton"/,${
-          /^<script type="text\/javascript">/,/^<\/script>/{/^</!p}
+          /^<script type="text\/javascript">/,/^<\/script>/{/^[[:space:]]*</!p}
           }' <<< "$PAGE")
 
     PART_URL=$(echo "var elts = new Array();
