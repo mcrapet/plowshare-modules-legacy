@@ -93,6 +93,7 @@ uploadable_ch   | download | upload | delete | list | probe |
 uploadhero      | download | upload | delete | list | probe |
 uploading       | download | upload |        |      | probe |
 uploaded_net    | download | upload | delete | list | probe |
+uploadrocket    |          | upload |        |      |       |
 upstore         | download | upload |        |      | probe |
 uptobox         | download | upload |        |      | probe |
 videowood_tv    |          | upload |        |      |       |
