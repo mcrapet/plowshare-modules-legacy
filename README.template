@@ -1,0 +1,13 @@
+## Plowshare legacy modules matrix
+
+Here is current hosters support list:
+<!-- === BEGIN MATRIX === -->
+<!-- === END MATRIX === -->
+Few notes:
+* "account" means that both free and premium accounts are supported.
+"(m)" means mandatory (it's common to have anonymous upload disabled by hosters).
+* Square brackets display dedicated command line options for a module and a function (download, upload, etc.).
+* Characters in **plowprobe** column refer to the sequences interpreted by plowprobe's `--printf` command line option.
+For example, "c" means the module can report a file's health (dead link or not).
+Please see `man plowprobe` for more information.
+
