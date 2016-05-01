@@ -294,7 +294,9 @@ go4up_list() {
     local BASE_URL='http://go4up.com'
     local PAGE INFO_URL LINKS FILE_NAME
 
-    PAGE=$(curl -L "$URL") || return
+    go4up_switch_lang "$COOKIE_FILE" "$BASE_URL"
+
+    PAGE=$(curl -b "$COOKIE_FILE" -L "$URL") || return
 
     if match 'The file is being uploaded on mirror websites' "$PAGE"; then
         return $ERR_LINK_TEMP_UNAVAILABLE
@@ -307,13 +309,13 @@ go4up_list() {
     FILE_NAME=$(parse '<h3' '<h3[[:space:]]*>\(.\+\)[[:space:]]\+([[:alnum:]]\+' \
         <<< "$PAGE") || return
 
-    PAGE=$(curl "$BASE_URL$INFO_URL" | break_html_lines_alt) || return
+    PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL$INFO_URL" | break_html_lines_alt) || return
     PAGE=$(replace_all '\"' '"' <<< "$PAGE")
     PAGE=$(replace_all '\/' '/' <<< "$PAGE")
     LINKS=$(parse_all_attr '^<a' 'href' <<< "$PAGE") || return
 
     while read INFO_URL; do
-        PAGE=$(curl "$BASE_URL$INFO_URL") || return
+        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL$INFO_URL") || return
         parse_attr '<b>' 'href' <<< "$PAGE" || return
         echo "$FILE_NAME"
     done <<< "$LINKS"
@@ -362,7 +364,7 @@ go4up_delete() {
     # Check if link is really gone
     PAGE=$(curl -b "$COOKIE_FILE" "$URL") || return
     if ! match 'File not Found' "$PAGE"; then
-        log_error 'File NOT removed. Are the owner if this file?'
+        log_error 'File NOT removed. Are you the owner if this file?'
         return $ERR_LINK_NEED_PERMISSIONS
     fi
 }
