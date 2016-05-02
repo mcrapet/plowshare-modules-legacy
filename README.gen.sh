@@ -40,7 +40,7 @@ tmpfile=$(mktemp)
 tmpdir=$(mktemp -d)
 git archive $branch | tar -x -C $tmpdir
 sed -ne '1,/=== BEGIN MATRIX ===/p' $template >$tmpfile
-$gen $gen_opts $tmpdir >>$tmpfile
+$gen $gen_opts $tmpdir | sed -e 's/[[:space:]]\+/ /g' -e 's/[[:space:]]|/|/g' >>$tmpfile
 sed -ne '/=== END MATRIX ===/,$p' $template >>$tmpfile
 cp $tmpfile $target
 rm -rf $tmpfile $tmpdir

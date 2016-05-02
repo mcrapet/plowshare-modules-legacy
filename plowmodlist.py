@@ -144,6 +144,10 @@ class PlowshareModule(object):
     def has_download(self):
         return self._has_download
     @property
+    def download_final_cookie(self):
+        """ Returns: Boolean. True if final url requires a cookie """
+        return self._download_final_cookie
+    @property
     def download_auth(self):
         if not self._has_download:
             return ''
@@ -244,17 +248,22 @@ def pretty_print_modules(modules, layout, bool_true='yes', bool_false='no'):
         fields['probe'] = bool_true if m.has_probe else bool_false
 
         fields['down_opts'] = ''
+        fields['down_final'] = ''
         if m.has_download:
             fields['down_auth'] = m.download_auth
+
+            if m.download_final_cookie:
+                fields['down_final'] = '(c)'
+
             if m.download_opts:
-                fields['down_opts'] = ' [`{}`]'.format(', '.join(m.download_opts)) # FIXME: Harcoded markdown syntax
+                fields['down_opts'] = '[`{}`]'.format(', '.join(m.download_opts)) # FIXME: Harcoded markdown syntax
         else:
             fields['down_auth'] = ''
         fields['up_opts'] = ''
         if m.has_upload:
             fields['up_auth'] = m.upload_auth
             if m.upload_opts:
-                fields['up_opts'] = ' [`{}`]'.format(', '.join(m.upload_opts)) # FIXME: Harcoded markdown syntax
+                fields['up_opts'] = '[`{}`]'.format(', '.join(m.upload_opts)) # FIXME: Harcoded markdown syntax
         else:
             fields['up_auth'] = ''
         if m.has_delete:
@@ -304,10 +313,10 @@ if __name__ == '__main__':
             pretty_print_modules(objs,
                                  '{m:18}|{down_auth:^13}|{up_auth:^13}|{del_auth:^13}|{list:^5}|{probe_flags:^10}|')
         elif args.format == 'markdown':
-            print('   |plowdown|plowup|plowdel|plowlist|plowprobe')
+            print('&nbsp;|plowdown|plowup|plowdel|plowlist|plowprobe')
             print('---|---|---|:---:|:---:|---')
             pretty_print_modules(objs,
-                                 '{m}|{down_auth}{down_opts}|{up_auth}{up_opts}|{del}|{list}|{probe_flags}', 'x', '')
+                                 '{m}|{down_auth} {down_final} {down_opts}|{up_auth} {up_opts}|{del}|{list}|{probe_flags}', 'x', '')
             print('(last update of this table: {0:%Y-%m-%d}; number of modules/supported hosters: {1})'.format(
                 datetime.datetime.now(), len(objs)))
 
