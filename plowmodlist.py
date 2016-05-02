@@ -162,6 +162,10 @@ class PlowshareModule(object):
     def has_upload(self):
         return self._has_upload
     @property
+    def upload_remote_support(self):
+        """ Returns: Boolean. True if remote upload is supported """
+        return self._upload_remote
+    @property
     def upload_auth(self):
         if not self._has_upload:
             return ''
@@ -259,9 +263,14 @@ def pretty_print_modules(modules, layout, bool_true='yes', bool_false='no'):
                 fields['down_opts'] = '[`{}`]'.format(', '.join(m.download_opts)) # FIXME: Harcoded markdown syntax
         else:
             fields['down_auth'] = ''
+
         fields['up_opts'] = ''
+        fields['up_remote'] = ''
         if m.has_upload:
             fields['up_auth'] = m.upload_auth
+            if m.upload_remote_support:
+                fields['up_remote'] = '(r)'
+
             if m.upload_opts:
                 fields['up_opts'] = '[`{}`]'.format(', '.join(m.upload_opts)) # FIXME: Harcoded markdown syntax
         else:
@@ -316,7 +325,7 @@ if __name__ == '__main__':
             print('&nbsp;|plowdown|plowup|plowdel|plowlist|plowprobe')
             print('---|---|---|:---:|:---:|---')
             pretty_print_modules(objs,
-                                 '{m}|{down_auth} {down_final} {down_opts}|{up_auth} {up_opts}|{del}|{list}|{probe_flags}', 'x', '')
+                                 '{m}|{down_auth} {down_final} {down_opts}|{up_auth} {up_remote} {up_opts}|{del}|{list}|{probe_flags}', 'x', '')
             print('(last update of this table: {0:%Y-%m-%d}; number of modules/supported hosters: {1})'.format(
                 datetime.datetime.now(), len(objs)))
 
