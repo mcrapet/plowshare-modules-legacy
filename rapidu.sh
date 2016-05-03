@@ -77,7 +77,7 @@ rapidu_login() {
 rapidu_download() {
     local -r COOKIE_FILE=$1
     local -r BASE_URL='https://rapidu.net'
-    local URL ACCOUNT PAGE JSON WAIT_TIME USUAL_WAIT_TIME FILE_ID STATUS FILE_URL
+    local URL ACCOUNT PAGE JSON WAIT_TIME FILE_ID STATUS FILE_URL
 
     # Get a canonical URL for this file.
     URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
@@ -99,9 +99,8 @@ rapidu_download() {
 
     JSON=$(curl -d '_go=' -e "$URL" "$BASE_URL/ajax.php?a=getLoadTimeToDownload") || return
     WAIT_TIME=$(($(parse_json 'timeToDownload' <<< "$JSON") - $(date +%s))) || return
-    USUAL_WAIT_TIME=$(parse 'Waiting for the file' '>\([[:digit:]]\+\)s' 1 <<< "$PAGE") || return
-    # Warning! You have reached your downloads limit.
-    if [[ $WAIT_TIME -gt $USUAL_WAIT_TIME ]]; then
+    # Note: If we wait more then 5 minutes then we definitely reached downloads limit.
+    if [[ $WAIT_TIME -gt 300 ]]; then
         log_error 'Download limit reached.'
         echo $WAIT_TIME
         return $ERR_LINK_TEMP_UNAVAILABLE
