@@ -264,7 +264,7 @@ uploaded_net_download() {
 
         # Determine account type
         local TYPE
-        TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 1 <<< "$PAGE") || return
+        TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 2 <<< "$PAGE") || return
         ACCOUNT=$(lowercase "$TYPE")
 
         SESS=$(parse_cookie 'auth' < "$COOKIE_FILE")
@@ -496,7 +496,7 @@ uploaded_net_upload() {
 
         # Determine account type
         local TYPE
-        TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 1 <<< "$PAGE") || return
+        TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 2 <<< "$PAGE") || return
         ACCOUNT=$(lowercase "$TYPE")
 
         SESS=$(parse_cookie 'auth' < "$COOKIE_FILE")
