@@ -70,7 +70,7 @@ uploaded_net_login() {
     # Determine account type
     PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/me") || return
     ID=$(parse 'ID:' '<em.*>\(.*\)</em>' 1 <<< "$PAGE") || return
-    TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 1 <<< "$PAGE") || return
+    TYPE=$(parse 'Status:' '<em>\(.*\)</em>' 2 <<< "$PAGE") || return
     NAME=$(parse_quiet 'Alias:' '<b><b>\(.*\)</b></b>' 1 <<< "$PAGE")
 
     if [ "$TYPE" = 'Free' ]; then
