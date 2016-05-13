@@ -18,6 +18,12 @@
 
 MODULE_UPLOADROCKET_REGEXP_URL='https\?://\(www\.\)\?uploadrocket\.net/'
 
+MODULE_UPLOADROCKET_DOWNLOAD_OPTIONS="
+AUTH,a,auth,a=USER:PASSWORD,User account"
+MODULE_UPLOADROCKET_DOWNLOAD_RESUME=yes
+MODULE_UPLOADROCKET_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
+MODULE_UPLOADROCKET_DOWNLOAD_SUCCESSIVE_INTERVAL=
+
 MODULE_UPLOADROCKET_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account
 LINK_PASSWORD,p,link-password,S=PASSWORD,Protect a link with a password
@@ -28,6 +34,8 @@ PREMIUM_FILE,,premium,,Make file inaccessible to non-premium users
 PUBLISH_FILE,,publish,,Mark file to be published
 PROXY,,proxy,s=PROXY,Proxy for a remote link"
 MODULE_UPLOADROCKET_UPLOAD_REMOTE_SUPPORT=yes
+
+MODULE_UPLOADROCKET_PROBE_OPTIONS=""
 
 # Switch language to english
 # $1: cookie file
@@ -88,6 +96,97 @@ uploadrocket_login() {
 
     log_debug "Successfully $MSG '$TYPE' member '$NAME'"
     echo $TYPE
+}
+
+# Output a uploadrocket file download URL
+# $1: cookie file
+# $2: uploadrocket url
+# stdout: real file download link
+uploadrocket_download() {
+    local -r COOKIE_FILE=$1
+    local -r BASE_URL='http://uploadrocket.net/'
+    local URL ACCOUNT PAGE ERR FORM_HTML FORM_OP FORM_USR FORM_ID
+    local FORM_REF FORM_METHOD_F FORM_METHOD_P FORM_RAND FORM_DD
+
+    # Get a canonical URL for this file.
+    URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
+    [ -n "$URL" ] || URL=$2
+    readonly URL
+
+    uploadrocket_switch_lang "$COOKIE_FILE" "$BASE_URL"
+
+    if [ -n "$AUTH" ]; then
+        ACCOUNT=$(uploadrocket_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
+    fi
+
+    PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL" \
+        | strip_html_comments) || return
+
+    if match '>File Not Found<\|>No such file with this filename<' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    fi
+
+    FORM_HTML=$(grep_form_by_id "$PAGE" 'ID_freeorpremium') || return
+    FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
+    FORM_USR=$(parse_form_input_by_name_quiet 'usr_login' <<< "$FORM_HTML")
+    FORM_ID=$(parse_form_input_by_name_quiet 'id' <<< "$FORM_HTML") || return
+    FORM_REF=$(parse_form_input_by_name_quiet 'referer' <<< "$FORM_HTML")
+    FORM_METHOD_F=$(parse_form_input_by_name_quiet 'method_isfree' <<< "$FORM_HTML")
+
+    if [ -z "$FORM_ID" ]; then
+        return $ERR_LINK_DEAD
+    fi
+
+    PAGE=$(curl -b "$COOKIE_FILE" \
+        -d "op=$FORM_OP" \
+        -d "usr_login=$FORM_USR" \
+        -d "id=$FORM_ID" \
+        -d "referer=$FORM_REF" \
+        --data-urlencode "method_isfree=$FORM_METHOD_F" \
+        "$URL") || return
+
+    FORM_HTML=$(grep_form_by_id "$PAGE" 'ID_F1') || return
+    FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
+    FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
+    FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
+    FORM_REF=$(parse_form_input_by_name_quiet 'referer' <<< "$FORM_HTML")
+    FORM_METHOD_F=$(parse_form_input_by_name_quiet 'method_isfree' <<< "$FORM_HTML")
+    FORM_METHOD_P=$(parse_form_input_by_name_quiet 'method_ispremium' <<< "$FORM_HTML")
+    FORM_DD=$(parse_form_input_by_name 'down_direct' <<< "$FORM_HTML") || return
+
+    local PUBKEY RESP CHALLENGE ID
+    PUBKEY='mC2C7c.3-sHSuvEpXYQrUJ-TQy3PH2ET'
+    RESP=$(solvemedia_captcha_process $PUBKEY) || return
+    { read CHALLENGE; read ID; } <<< "$RESP"
+
+    PAGE=$(curl -b "$COOKIE_FILE" \
+        -d "op=$FORM_OP" \
+        -d "id=$FORM_ID" \
+        -d "rand=$FORM_RAND" \
+        -d "referer=$FORM_REF" \
+        --data-urlencode "method_isfree=$FORM_METHOD_F" \
+        --data-urlencode "method_ispremium=$FORM_METHOD_P" \
+        --data-urlencode 'adcopy_response=manual_challenge' \
+        --data-urlencode "adcopy_challenge=$CHALLENGE" \
+        "$URL") || return
+
+    ERR=$(parse_quiet '<div class="err">' '^\(.*\)$' 1 <<< "$PAGE" | strip)
+
+    if [ -n "$ERR" ]; then
+        if [ "$ERR" = 'Wrong captcha' ]; then
+                captcha_nack $ID
+                log_error 'Wrong captcha'
+                return $ERR_CAPTCHA
+        fi
+
+        log_error "Unexpected error: $ERR"
+        return $ERR_FATAL
+    fi
+
+    captcha_ack $ID
+    log_debug 'Correct captcha'
+
+    parse_attr 'Direct Download Link' 'href' <<< "$PAGE" || return
 }
 
 # Static function. Check if specified folder name is valid.
@@ -342,4 +441,51 @@ uploadrocket_upload() {
 
     echo "$FILE_URL"
     echo "$FILE_DEL_URL"
+}
+
+# Probe a download URL
+# $1: cookie file (unused here)
+# $2: uploadrocket url
+# $3: requested capability list
+# stdout: 1 capability per line
+uploadrocket_probe() {
+    local -r URL=$2
+    local -r REQ_IN=$3
+    local -r BASE_URL='http://uploadrocket.net/'
+    local PAGE FILE_SIZE REQ_OUT
+
+    # Check a file through a link checker.
+    PAGE=$(curl -b 'lang=english' \
+        -d 'op=checkfiles' \
+        -d "list=$URL" \
+        -d 'process=Check URLs' \
+        "$BASE_URL/?op=checkfiles") || return
+
+    if match '>Not found!<' "$PAGE"; then
+        return $ERR_LINK_DEAD
+
+    elif match ">Filename don't match!<" "$PAGE"; then
+        log_error "Filename don't match!"
+        return $ERR_FATAL
+    fi
+
+    REQ_OUT=c
+
+    if [[ $REQ_IN = *f* ]]; then
+        parse_quiet . '/[[:alnum:]]\+/\([^/]*\)' <<< "$URL" \
+            | replace '.html' '' | replace '.htm' '' \
+            && REQ_OUT="${REQ_OUT}f"
+    fi
+
+    if [[ $REQ_IN = *s* ]]; then
+        FILE_SIZE=$(parse . '>Found</td><td>\([^<]*\)' <<< "$PAGE") \
+            && FILE_SIZE=$(replace 'B' 'iB' <<< $FILE_SIZE) \
+            && translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
+    fi
+
+    if [[ $REQ_IN = *i* ]]; then
+        parse . 'net/\([[:alnum:]]\+\)' <<< "$URL" && REQ_OUT="${REQ_OUT}i"
+    fi
+
+    echo $REQ_OUT
 }

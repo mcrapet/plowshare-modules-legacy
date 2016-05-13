@@ -92,7 +92,7 @@ uploadboy       | download |        |        |      | probe |
 uploadable_ch   | download | upload | delete | list | probe |
 uploading       | download | upload |        |      | probe |
 uploaded_net    | download | upload | delete | list | probe |
-uploadrocket    |          | upload |        |      |       |
+uploadrocket    | download | upload |        |      | probe |
 upstore         | download | upload |        |      | probe |
 uptobox         | download | upload |        |      | probe |
 videowood_tv    |          | upload |        |      |       |
