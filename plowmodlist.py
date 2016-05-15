@@ -118,21 +118,39 @@ class PlowshareModule(object):
             self._download_resume = self.__variable_bool(prefix, 'DOWNLOAD_RESUME')
             self._download_final_cookie = self.__variable_bool(prefix,
                                                                'DOWNLOAD_FINAL_LINK_NEEDS_COOKIE')
+            # grep xxx_download() function
+            fn = re.search('^' + self._name + r'_download\(\).*?^}',
+                           self._source_code, re.M | re.DOTALL).group(0)
+
+            # FIXME: maybe in login function
+            self._download_cache = (fn.find('storage_set') != -1 or fn.find('storage_get') != -1)
+
         if self._has_upload:
             self._upload_options = self.__variable_options(prefix, 'UPLOAD')
             self._upload_remote = self.__variable_bool(prefix, 'UPLOAD_REMOTE_SUPPORT')
+
+            # grep xxx_upload() function
+            fn = re.search('^' + self._name + r'_upload\(\).*?^}',
+                           self._source_code, re.M | re.DOTALL).group(0)
+
+            # FIXME: maybe in login function
+            self._upload_cache = (fn.find('storage_set') != -1 or fn.find('storage_get') != -1)
+
         if self._has_delete:
             self._delete_options = self.__variable_options(prefix, 'DELETE')
+
         if self._has_list:
             self._list_options = self.__variable_options(prefix, 'LIST')
             self._list_subfolders = self.__variable_bool(prefix, 'LIST_HAS_SUBFOLDERS')
+
         if self._has_probe:
             self._probe_options = self.__variable_options(prefix, 'PROBE')
+
             # grep xxx_probe() function
-            funcs = re.search('^' + self._name + r'_probe\(\).*?^}',
-                              self._source_code, re.M | re.DOTALL)
-            flags = re.findall(r'if \[\[ \$REQ_IN = \*([fhistv])\* \]\]; then',
-                               funcs.group(0), re.M)
+            fn = re.search('^' + self._name + r'_probe\(\).*?^}',
+                           self._source_code, re.M | re.DOTALL).group(0)
+
+            flags = re.findall(r'if \[\[ \$REQ_IN = \*([fhistv])\* \]\]; then', fn, re.M)
             self._probe_flags = sorted(flags + ['c'])
 
     @property
@@ -142,6 +160,7 @@ class PlowshareModule(object):
 
     @property
     def has_download(self):
+        """ Returns: Boolean. True if module has 'download' capability """
         return self._has_download
     @property
     def download_final_cookie(self):
@@ -155,11 +174,16 @@ class PlowshareModule(object):
                                     self._download_options.get('AUTH_FREE'))
     @property
     def download_opts(self):
-        """ Returns: Module command line 'download' long options list """
+        """ Returns: Array. Module command-line 'download' long options list """
         return ['--'+v[1] for v in self._download_options.values()]
+    @property
+    def download_session_cache(self):
+        """ Returns: Boolean. True if cache is supported (avoid multiple logins) """
+        return self._download_cache
 
     @property
     def has_upload(self):
+        """ Returns: Boolean. True if module has 'upload' capability """
         return self._has_upload
     @property
     def upload_remote_support(self):
@@ -173,11 +197,16 @@ class PlowshareModule(object):
                                     self._upload_options.get('AUTH_FREE'))
     @property
     def upload_opts(self):
-        """ Returns: Module command line 'upload' long options list """
+        """ Returns: Array. Module command-line 'upload' long options list """
         return ['--'+v[1] for v in self._upload_options.values()]
+    @property
+    def upload_session_cache(self):
+        """ Returns: Boolean. True if cache is supported (avoid multiple logins) """
+        return self._upload_cache
 
     @property
     def has_delete(self):
+        """ Returns: Boolean. True if module has 'delete' capability """
         return self._has_delete
     @property
     def delete_auth(self):
@@ -187,11 +216,12 @@ class PlowshareModule(object):
                                     self._delete_options.get('AUTH_FREE'))
     @property
     def delete_opts(self):
-        """ Returns: Module command line 'delete' long options list. """
+        """ Returns: Array. Module command-line 'delete' long options list """
         return ['--'+v[1] for v in self._delete_options.values()]
 
     @property
     def has_list(self):
+        """ Returns: Boolean. True if module has 'list' capability """
         return self._has_list
     @property
     def list_auth(self):
@@ -202,6 +232,7 @@ class PlowshareModule(object):
 
     @property
     def has_probe(self):
+        """ Returns: Boolean. True if module has 'probe' capability """
         return self._has_probe
     @property
     def probe_auth(self):
@@ -211,7 +242,7 @@ class PlowshareModule(object):
                                     self._probe_options.get('AUTH_FREE'))
     @property
     def probe_flags(self):
-        """ Returns: list of capabilities (characters) """
+        """ Returns: Array of characters. List of capabilities """
         return self._probe_flags
 
 def warning(*items):
@@ -253,11 +284,14 @@ def pretty_print_modules(modules, layout, bool_true='yes', bool_false='no'):
 
         fields['down_opts'] = ''
         fields['down_final'] = ''
+        fields['down_session'] = ''
         if m.has_download:
             fields['down_auth'] = m.download_auth
 
             if m.download_final_cookie:
                 fields['down_final'] = '(c)'
+            if m.download_session_cache:
+                fields['down_session'] = '(s)'
 
             if m.download_opts:
                 fields['down_opts'] = '[`{}`]'.format(', '.join(m.download_opts)) # FIXME: Harcoded markdown syntax
@@ -266,10 +300,13 @@ def pretty_print_modules(modules, layout, bool_true='yes', bool_false='no'):
 
         fields['up_opts'] = ''
         fields['up_remote'] = ''
+        fields['up_session'] = ''
         if m.has_upload:
             fields['up_auth'] = m.upload_auth
             if m.upload_remote_support:
                 fields['up_remote'] = '(r)'
+            if m.upload_session_cache:
+                fields['up_session'] = '(s)'
 
             if m.upload_opts:
                 fields['up_opts'] = '[`{}`]'.format(', '.join(m.upload_opts)) # FIXME: Harcoded markdown syntax
@@ -325,7 +362,7 @@ if __name__ == '__main__':
             print('&nbsp;|plowdown|plowup|plowdel|plowlist|plowprobe')
             print('---|---|---|:---:|:---:|---')
             pretty_print_modules(objs,
-                                 '{m}|{down_auth} {down_final} {down_opts}|{up_auth} {up_remote} {up_opts}|{del}|{list}|{probe_flags}', 'x', '')
+                                 '{m}|{down_auth} {down_final} {down_session} {down_opts}|{up_auth} {up_session} {up_remote} {up_opts}|{del}|{list}|{probe_flags}', 'x', '')
             print('(last update of this table: {0:%Y-%m-%d}; number of modules/supported hosters: {1})'.format(
                 datetime.datetime.now(), len(objs)))
 

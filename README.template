@@ -4,11 +4,12 @@ Here is current hosters support list:
 <!-- === BEGIN MATRIX === -->
 <!-- === END MATRIX === -->
 Few notes:
-* "account" means that both free and premium accounts are supported.
+* "account" means that both "free" and "premium" accounts are supported.
 * Emoticons meaning:
-  - :cookie: final url download requires cookies. Mostly valid for anonymous downloads.
+  - :cookie: (**plowdown***) final url download requires cookies. Mostly valid for anonymous downloads.
   - :lock: mandatory login (it's common to have anonymous upload disabled by hosters).
-  - :rocket: supports remote upload (usually requires premium account).
+ -  :recycle: session management is handled by module (avoids multiple logins).
+  - :rocket: (**plowup**) supports remote upload (usually requires premium account).
 * Square brackets display dedicated command line options for a module and a function (download, upload, etc.).
 * Characters in **plowprobe** column refer to the sequences interpreted by plowprobe's `--printf` command line option.
 For example, "c" means the module can report a file's health (dead link or not).
