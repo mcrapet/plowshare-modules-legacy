@@ -122,7 +122,7 @@ uploadrocket_download() {
     PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL" \
         | strip_html_comments) || return
 
-    if match '>File Not Found<\|>No such file with this filename<' "$PAGE"; then
+    if match '>\(File Not Found\|No such file with this filename\|The file was removed by administrator\)<' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
