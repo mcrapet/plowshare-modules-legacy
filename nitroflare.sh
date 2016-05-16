@@ -65,13 +65,16 @@ nitroflare_download() {
         "$BASE_URL/ajax/freeDownload.php") || return
 
     # Warning! You have reached your downloads limit.
-    if match 'Free downloading is not possible. You have to wait' "$RESP"; then
+    if match 'Free downloading is not possible\. You have to wait' "$RESP"; then
         local HOURS MINS SECS
         HOURS=$(parse_quiet . '[^[:digit:]]\([[:digit:]]\+\) hours\?' <<< "$RESP")
         MINS=$(parse_quiet . '[^[:digit:]]\([[:digit:]]\+\) minutes\?' <<< "$RESP")
         SECS=$(parse_quiet . '[^[:digit:]]\([[:digit:]]\+\) seconds\?' <<< "$RESP")
         echo $((HOURS * 60 * 60 + MINS * 60 + SECS))
         return $ERR_LINK_TEMP_UNAVAILABLE
+    # This file is available with Premium only. Reason: the file's owner disabled free downloads.
+    elif match 'This file is available with Premium only\.' "$RESP"; then
+        return $ERR_LINK_NEED_PERMISSIONS
     fi
 
     WAIT_TIME=$(parse_attr 'id="CountDownTimer"' 'data-timer' <<< "$PAGE") || return
