@@ -293,8 +293,11 @@ mediafire_download() {
         PAGE=$(curl --location -b "$COOKIE_FILE" --referer "$URL" \
             -d "security=$SECURITY_CODE" $CAPTCHA_DATA "$BASE_URL/?$FILE_ID") || return
 
+        # After resolving captcha we are redirected to an error page, so once again load a proper page.
+        PAGE=$(curl -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
+
         # Your entry was incorrect, please try again!
-        if match 'Your entry was incorrect' "$PAGE"; then
+        if match 'form name="form_captcha"' "$PAGE"; then
             captcha_nack $ID
             log_error 'Wrong captcha'
             return $ERR_CAPTCHA
@@ -302,9 +305,6 @@ mediafire_download() {
 
         captcha_ack $ID
         log_debug 'Correct captcha'
-
-        # After resolving captcha we are redirected to an error page, so once again load a proper page.
-        PAGE=$(curl -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
     fi
 
     # Check for password protected link
