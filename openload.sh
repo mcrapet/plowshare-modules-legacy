@@ -105,7 +105,7 @@ openload_login() {
 # stdout: real file download link
 openload_download() {
     local -r URL=$2
-    local PAGE WAIT FILE_URL FILE_NAME
+    local PAGE WAIT FILE_URL JS
 
     PAGE=$(curl -L "$URL") || return
 
@@ -113,15 +113,32 @@ openload_download() {
         return $ERR_LINK_DEAD
     fi
 
-    WAIT=$(parse_tag 'id="secondsleft"' span <<< "$PAGE") || return
+    detect_javascript || return
 
+    WAIT=$(parse_tag 'id="secondsleft"' span <<< "$PAGE") || return
     wait $(($WAIT)) seconds || return
 
-    FILE_URL=$(parse_attr 'id="realdownload"' href <<< "$PAGE")
-    FILE_NAME=$(parse_tag 'id="filename"' span <<< "$PAGE")
+    # Obfuscated code with utf-8 variable names
+    JS=$(grep_script_by_order "$PAGE" 12) || return
+    JS=${JS#<script type=\"text/javascript\">}
+    JS=${JS%</script>}
+
+    FILE_URL=$(echo "
+attr = function(name,value) {
+  if (typeof console === 'object' && typeof console.log === 'function') {
+    console.log(value);
+  } else {
+    print(value);
+  }
+}
+\$ = function(obj) {
+  return {
+    attr: attr
+  };
+}
+$JS" | javascript) || return
 
     echo "$FILE_URL"
-    echo "$FILE_NAME"
 }
 
 # Static function. Check if a cookie doesn't expired.
