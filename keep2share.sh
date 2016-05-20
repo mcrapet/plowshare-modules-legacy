@@ -21,7 +21,7 @@
 MODULE_KEEP2SHARE_REGEXP_URL='https\?://\(www\.\)\?\(keep2share\|k2s\|k2share\|keep2s\)\.cc/'
 
 MODULE_KEEP2SHARE_DOWNLOAD_OPTIONS="
-AUTH,a,auth,a=EMAIL:PASSWORD,Premium account"
+AUTH,a,auth,a=EMAIL:PASSWORD,User account"
 MODULE_KEEP2SHARE_DOWNLOAD_RESUME=yes
 MODULE_KEEP2SHARE_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
 MODULE_KEEP2SHARE_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=
@@ -52,22 +52,60 @@ keep2share_status() {
 
 # Static function. Proceed with login
 # $1: authentication
-# $3: API URL
+# $2: API URL
 # stdout: auth token
 keep2share_login() {
-    local -r BASE_URL=$2
-    local USER PASSWORD JSON
+    local -r API_URL=$2
+    local TOKEN JSON MSG USER PASSWORD ACCOUNT_EXPIRES TYPE EPOCH
 
-    split_auth "$1" USER PASSWORD || return
-    JSON=$(curl --data '{"username":"'"$USER"'","password":"'"$PASSWORD"'"}' \
-        "${BASE_URL}login") || return
+    if TOKEN=$(storage_get 'token'); then
 
-    # {"status":"success","code":200,"auth_token":"li26v3nbhspn0tdth5hmd53j07"}
-    # {"message":"Login attempt was exceed, wait...","status":"error","code":406}
+        # Check for expired session
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'"}' "${API_URL}test") || return
+
+        # {"status":"success","code":200,"message":"Test was successful!"}
+        # {"status":"error","code":403,"message":"Authorization session was expired"}
+        if ! keep2share_status "$JSON"; then
+            storage_set 'token'
+            return $ERR_EXPIRED_SESSION
+        fi
+
+        log_debug "token (cached): '$TOKEN'"
+        MSG='reused login for'
+    else
+        split_auth "$1" USER PASSWORD || return
+        JSON=$(curl --data '{"username":"'"$USER"'","password":"'"$PASSWORD"'"}' \
+            "${API_URL}login") || return
+
+        # {"status":"success","code":200,"auth_token":"li26v3nbhspn0tdth5hmd53j07"}
+        # {"message":"Login attempt was exceed, wait...","status":"error","code":406}
+        keep2share_status "$JSON" || return $ERR_LOGIN_FAILED
+
+        TOKEN=$(parse_json 'auth_token' <<< "$JSON")
+        storage_set 'token' "$TOKEN"
+
+        log_debug "Successfully logged in as $USER member"
+        MSG='logged in as'
+    fi
+
+    JSON=$(curl --data '{"auth_token":"'$TOKEN'"}' "${API_URL}AccountInfo") || return
+
+    # {"status":"success","code":200,"available_traffic":10737418240,"account_expires":false}
+    # {"message":"No allow from this network","status":"error","code":403,"errorCode":73}
     keep2share_status "$JSON" || return $ERR_LOGIN_FAILED
 
-    parse_json 'auth_token' <<< "$JSON" && \
-        log_debug "Successfully logged in as $USER member"
+    ACCOUNT_EXPIRES=$(parse_json 'account_expires' <<< "$JSON") || return
+    TYPE='free'
+    if [ "$ACCOUNT_EXPIRES" != 'false' ]; then
+        EPOCH=$(date +%s)
+        if (( ACCOUNT_EXPIRES > EPOCH )); then
+            TYPE='premium'
+        fi
+    fi
+
+    log_debug "Successfully $MSG '$TYPE' member"
+    echo $TYPE
+    echo $TOKEN
 }
 
 # Output an keep2share file download URL
@@ -77,8 +115,8 @@ keep2share_login() {
 keep2share_download() {
     local -r COOKIE_FILE=$1
     local -r API_URL='http://keep2share.cc/api/v1/'
-    local URL BASE_URL FILE_ID TOKEN FILE_NAME PRE_URL
-    local PAGE FORM_HTML FORM_ID FORM_ACTION WAIT
+    local URL BASE_URL ACCOUNT TOKEN FILE_NAME FILE_ID FILE_STATUS PRE_URL
+    local AT JSON PAGE FORM_HTML FORM_ID FORM_ACTION WAIT
 
     # get canonical URL and BASE_URL for this file
     URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
@@ -86,43 +124,113 @@ keep2share_download() {
     BASE_URL=${URL%/file*}
     readonly URL BASE_URL
 
-    FILE_ID=$(parse . 'file/\([^/]\+\)' <<< "$URL") || return
+    if [ -n "$AUTH" ]; then
+        AT=$(keep2share_login "$AUTH" "$API_URL") || return
+        { read ACCOUNT; read TOKEN; } <<< "$AT"
+    fi
 
-    # Premium download
-    if TOKEN=$(storage_get 'token'); then
+    if [ "$ACCOUNT" = 'premium' ]; then
+        FILE_ID=$(parse . 'file/\([^/]\+\)' <<< "$URL") || return
 
-        # Check for expired session
-        JSON=$(curl --data '{"auth_token":"'$TOKEN'"}' "${API_URL}test") || return
+        # Check a file status and get its filename from api
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'","ids":["'$FILE_ID'"]}' "${API_URL}GetFilesInfo") || return
 
-        # {"status":"success","code":200,"message":"Test was successful!"}
-        # {"status":"error","code":403,"message":"Authorization session was expired"}
-        if ! keep2share_status "$JSON"; then
-            log_error 'Expired token, delete cache entry'
-            storage_set 'token'
-            echo 1
-            return $ERR_LINK_TEMP_UNAVAILABLE
+        # {"status":"success","code":200,"files":[{"id":"c1672cfa4f357","name":
+        keep2share_status "$JSON" || return
+
+        FILE_STATUS=$(parse_json 'is_available' <<< "$JSON") || return
+        if [ "$FILE_STATUS" != 'true' ]; then
+            return $ERR_LINK_DEAD
         fi
 
-        log_debug "token (cached): '$TOKEN'"
+        FILE_STATUS=$(parse_json 'access' <<< "$JSON") || return
+        if [ "$FILE_STATUS" = 'private' ]; then
+            log_error 'This is a private file.'
+            return $ERR_LINK_NEED_PERMISSIONS
+        fi
 
-        # Get filename from api
-        JSON=$(curl --data '{"auth_token":"'$TOKEN'","ids":["'$FILE_ID'"]}' "${API_URL}GetFilesInfo") || return
-        FILE_NAME=$(parse_json_quiet 'name' <<< "$JSON")
+        FILE_NAME=$(parse_json 'name' <<< "$JSON") || return
 
-        curl --head -b "sessid=$TOKEN" "$URL" | grep_http_header_location || return
+        # Get a final link
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'","file_id":"'$FILE_ID'"}' "${API_URL}GetUrl") || return
+
+        # {"status":"success","code":200,"url": ...}
+        keep2share_status "$JSON" || return
+
+        parse_json 'url' <<< "$JSON" || return
         echo "$FILE_NAME"
         return 0
 
-    elif [ -n "$AUTH" ]; then
-        TOKEN=$(keep2share_login "$AUTH" "$API_URL") || return
-        storage_set 'token' "$TOKEN"
-        log_debug "token: '$TOKEN'"
+    elif [ "$ACCOUNT" = 'free' ]; then
+        local CAPTCHA_CHALL CAPTCHA_URL CAPTCHA_IMG STATUS DOWNLOAD_KEY
+        FILE_ID=$(parse . 'file/\([^/]\+\)' <<< "$URL") || return
 
-        # Get filename from api
+        # Check a file status and get its filename from api
         JSON=$(curl --data '{"auth_token":"'$TOKEN'","ids":["'$FILE_ID'"]}' "${API_URL}GetFilesInfo") || return
-        FILE_NAME=$(parse_json_quiet 'name' <<< "$JSON")
 
-        curl --head -b "sessid=$TOKEN" "$URL" | grep_http_header_location || return
+        # {"status":"success","code":200,"files":[{"id":"c1672cfa4f357","name": ...}}
+        keep2share_status "$JSON" || return
+
+        FILE_STATUS=$(parse_json 'is_available' <<< "$JSON") || return
+        if [ "$FILE_STATUS" != 'true' ]; then
+            return $ERR_LINK_DEAD
+        fi
+
+        FILE_STATUS=$(parse_json 'access' <<< "$JSON") || return
+        if [ "$FILE_STATUS" = 'premium' ]; then
+            return $ERR_LINK_NEED_PERMISSIONS
+
+        elif [ "$FILE_STATUS" = 'private' ]; then
+            log_error 'This is a private file.'
+            return $ERR_LINK_NEED_PERMISSIONS
+        fi
+
+        FILE_NAME=$(parse_json 'name' <<< "$JSON") || return
+
+        # Get captcha from api
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'"}' "${API_URL}RequestCaptcha") || return
+
+        # {"status":"success","code":200,"challenge":"c31a7a25d9d74","captcha_url": ...}
+        keep2share_status "$JSON" || return
+
+        CAPTCHA_CHALL=$(parse_json 'challenge' <<< "$JSON") || return
+        CAPTCHA_URL=$(parse_json 'captcha_url' <<< "$JSON") || return
+
+        CAPTCHA_IMG=$(create_tempfile '.jpg') || return
+        curl -o "$CAPTCHA_IMG" "$CAPTCHA_URL" || return
+
+        local WI WORD ID
+        WI=$(captcha_process "$CAPTCHA_IMG") || return
+        { read WORD; read ID; } <<< "$WI"
+        rm -f "$CAPTCHA_IMG"
+
+        # Check captcha and get free download key
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'","file_id":"'$FILE_ID'","captcha_challenge":"'$CAPTCHA_CHALL'","captcha_response":"'$WORD'"}' \
+            "${API_URL}GetUrl") || return
+
+        # {"status":"success","code":200,"message":"Captcha accepted, please wait","free_download_key": ...}
+        STATUS=$(parse_json 'status' <<< "$JSON") || return
+        if [ "$STATUS" != 'success' ]; then
+            captcha_nack $ID
+            log_error 'Wrong captcha'
+            return $ERR_CAPTCHA
+        fi
+
+        captcha_ack $ID
+        log_debug 'Correct captcha'
+
+        DOWNLOAD_KEY=$(parse_json 'free_download_key' <<< "$JSON") || return
+        WAIT=$(parse_json 'time_wait' <<< "$JSON") || return
+        wait $WAIT || return
+
+        # Get a final link
+        JSON=$(curl --data '{"auth_token":"'$TOKEN'","file_id":"'$FILE_ID'","free_download_key":"'$DOWNLOAD_KEY'"}' \
+            "${API_URL}GetUrl") || return
+
+        # {"status":"success","code":200,"url": ...}
+        keep2share_status "$JSON" || return
+
+        parse_json 'url' <<< "$JSON" || return
         echo "$FILE_NAME"
         return 0
     fi
@@ -274,29 +382,13 @@ keep2share_upload() {
     local -r FILE=$2
     local -r DEST_FILE=$3
     local -r API_URL='http://keep2share.cc/api/v1/'
-    local SZ TOKEN JSON JSON2 FILE_ID FOLDER_ID
+    local AT ACCOUNT MAX_SIZE SZ TOKEN JSON JSON2 FILE_ID FOLDER_ID
 
-    if TOKEN=$(storage_get 'token'); then
-
-        # Check for expired session
-        JSON=$(curl --data '{"auth_token":"'$TOKEN'"}' "${API_URL}test") || return
-
-        # {"status":"success","code":200,"message":"Test was successful!"}
-        # {"status":"error","code":403,"message":"Authorization session was expired"}
-        if ! keep2share_status "$JSON"; then
-            log_error 'Expired token, delete cache entry'
-            storage_set 'token'
-            echo 1
-            return $ERR_LINK_TEMP_UNAVAILABLE
-        fi
-
-        log_debug "token (cached): '$TOKEN'"
+    if [ -n "$AUTH" ]; then
+        AT=$(keep2share_login "$AUTH" "$API_URL") || return
+        { read ACCOUNT; read TOKEN; } <<< "$AT"
     else
-        [ -n "$AUTH" ] || return $ERR_LINK_NEED_PERMISSIONS
-
-        TOKEN=$(keep2share_login "$AUTH" "$API_URL") || return
-        storage_set 'token' "$TOKEN"
-        log_debug "token: '$TOKEN'"
+        return $ERR_LINK_NEED_PERMISSIONS
     fi
 
     # Sanity check
@@ -305,8 +397,12 @@ keep2share_upload() {
         return $ERR_BAD_COMMAND_LINE
     fi
 
-    # FIXME: Distinguish free/premium account
-    local -r MAX_SIZE=524288000 # 500 MiB (free account)
+    if [ "$ACCOUNT" = 'premium' ]; then
+        MAX_SIZE=5368709120 # 5 GiB (premium account)
+    else
+        MAX_SIZE=524288000 # 500 MiB (free account)
+    fi
+
     SZ=$(get_filesize "$FILE")
     if [ "$SZ" -gt "$MAX_SIZE" ]; then
         log_debug "file is bigger than $MAX_SIZE"
