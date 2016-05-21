@@ -14,6 +14,7 @@ catshare        | download |        |        |      | probe |
 chomikuj        | download | upload |        | list | probe |
 crocko          | download | upload |        | list | probe |
 data_hu         | download | upload | delete |      |       |
+datafile        | download |        |        |      | probe |
 dataport_cz     | download | upload | delete |      |       |
 depositfiles    | download | upload | delete | list | probe |
 directmirror    |          | upload |        | list |       |
@@ -27,6 +28,7 @@ fboom_me        | download |        |        |      | probe |
 filebin_ca      | download | upload |        |      | probe |
 filecloud       | download | upload |        | list | probe |
 filecore        | download |        |        |      | probe |
+filedais        | download |        |        |      | probe |
 filefactory     | download | upload |        | list | probe |
 filejoker       | download |        |        |      | probe |
 filemonkey      |          | upload |        |      |       |
