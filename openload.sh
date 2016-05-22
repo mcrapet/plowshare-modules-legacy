@@ -25,7 +25,7 @@ MODULE_OPENLOAD_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
 MODULE_OPENLOAD_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_OPENLOAD_UPLOAD_OPTIONS="
-AUTH,a,auth,a=USER:PASSWORD,User account
+AUTH,a,auth,a=API_LOGIN:API_KEY,User's API login and API key
 FOLDER,,folder,s=FOLDER,Folder to upload files into (support subfolders)
 ASYNC,,async,,Asynchronous remote upload (only start upload, don't wait for link)
 HEADER,,header,l=LIST,Header for a remote link (comma separated)"
@@ -33,68 +33,38 @@ MODULE_OPENLOAD_UPLOAD_REMOTE_SUPPORT=yes
 
 MODULE_OPENLOAD_PROBE_OPTIONS=""
 
+# Static function. Check query answer
+# $1: JSON data (like {"status":"200","msg":"Message", ...}
+# $?: 0 for success
+openload_status() {
+    local STATUS=$(parse_json 'status' <<< "$1")
+    if [ "$STATUS" != '200' ]; then
+        local MSG=$(parse_json 'msg' <<< "$1")
+        log_error "Remote status code: '$STATUS'."
+        [ -z "$MSG" ] || log_error "Message: $MSG"
+        return $ERR_FATAL
+    fi
+}
+
 # Static function. Proceed with login
 # $1: authentication
-# $2: cookie file
-# $3: base URL
-# $4: API URL
+# $2: API URL
 # stdout: account type ("free") and api data ("$API_DATA") with login and key on success.
 openload_login() {
     local -r AUTH=$1
-    local -r COOKIE_FILE=$2
-    local -r BASE_URL=$3
-    local -r API_URL=$4
-    local API_DATA JSON STATUS NAME MSG PAGE CSRF_TOKEN
-    local LOGIN_DATA LOCATION USER PASSWORD API_LOGIN API_KEY
+    local -r API_URL=$2
+    local USER PASSWORD API_DATA JSON NAME
 
-    if API_DATA=$(storage_get 'api_data'); then
+    split_auth "$AUTH" USER PASSWORD || return
+    API_DATA="-d login=$USER -d key=$PASSWORD"
+    JSON=$(curl $API_DATA "$API_URL/account/info") || return
 
-        # Check for expired session for API Login and API Key.
-        JSON=$(curl $API_DATA "$API_URL/account/info") || return
-        STATUS=$(parse_json 'status' <<< "$JSON") || return
-        if [ "$STATUS" != '200' ]; then
-            storage_set 'api_data'
-            return $ERR_EXPIRED_SESSION
-        fi
+    # {"status":200,"msg":"OK","result":{"extid": ...}}
+    openload_status "$JSON" || return $ERR_LOGIN_FAILED
 
-        NAME=$(parse_json_quiet 'email' <<< "$JSON")
-        log_debug "session (cached): checked API Login and API Key"
-        MSG='reused login for'
-    else
-        PAGE=$(curl -c "$COOKIE_FILE" "$BASE_URL/login") || return
-        CSRF_TOKEN=$(parse_attr 'name="csrf-token"' 'content' <<< "$PAGE") || return
-        LOGIN_DATA="_csrf=$CSRF_TOKEN&LoginForm[email]=\$USER&LoginForm[password]=\$PASSWORD&LoginForm[rememberMe]=1"
+    NAME=$(parse_json_quiet 'email' <<< "$JSON")
+    log_debug "Successfully logged in as 'free' member '$NAME'"
 
-        LOCATION=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$BASE_URL/login" \
-            -i -b "$COOKIE_FILE" | grep_http_header_location_quiet) || return
-
-        # If successful, then we should redirected to account.
-        if ! match "$BASE_URL/account" "$LOCATION"; then
-            return $ERR_LOGIN_FAILED
-        fi
-
-        # Get API Login.
-        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/account") || return
-        CSRF_TOKEN=$(parse_attr 'name="csrf-token"' 'content' <<< "$PAGE") || return
-        API_LOGIN=$(parse 'API Login:' 'API Login:</td><td>\([^<]*\)' \
-            <<< "$PAGE") || return
-
-        # Get API Key.
-        split_auth "$AUTH" USER PASSWORD || return
-        PAGE=$(curl -L -b "$COOKIE_FILE" -d "_csrf=$CSRF_TOKEN" \
-            -d "FTPKey[password]=$PASSWORD" "$BASE_URL/account") || return
-        API_KEY=$(parse 'API Key is:' 'API Key is:[[:space:]]*\([^[:space:]]*\)' \
-            <<< "$PAGE") || return
-
-        API_DATA="-d login=$API_LOGIN -d key=$API_KEY"
-        storage_set 'api_data' "$API_DATA"
-
-        NAME=$(parse_quiet '>E-mail:<' '>E-mail:</td><td>\([^<]*\)' <<< "$PAGE")
-        log_debug "session (new)"
-        MSG='logged in as'
-    fi
-
-    log_debug "Successfully $MSG 'free' member '$NAME'"
     echo 'free'
     echo "$API_DATA"
 }
@@ -141,23 +111,6 @@ $JS" | javascript) || return
     echo "$FILE_URL"
 }
 
-# Static function. Check if a cookie doesn't expired.
-# $1: cookie file
-# $2: base URL
-openload_check_cookie() {
-    local -r COOKIE_FILE=$1
-    local -r BASE_URL=$2
-    local LOCATION
-
-    LOCATION=$(curl -I -b "$COOKIE_FILE" "$BASE_URL/account" \
-        | grep_http_header_location_quiet) || return
-
-    if [ "$LOCATION" == "$BASE_URL/login" ]; then
-        storage_set 'api_data'
-        return $ERR_EXPIRED_SESSION
-    fi
-}
-
 # Static function. Check if specified folder name is valid.
 # If folder not found then create it. Support subfolders.
 # $1: folder name selected by user
@@ -173,7 +126,7 @@ openload_check_folder() {
     local -r API_URL=$4
     local -r API_DATA=$5
     local FOLDER_NAMES FOLDER JSON FOLDER_DATA
-    local FOLDER_ID FOLDER_LINE PARENT_ID STATUS
+    local FOLDER_ID FOLDER_LIST FOLDER_LINE PARENT_ID
 
     # Only backslashes in a folder name cause problems.
     if match '\\' "$NAME"; then
@@ -188,9 +141,15 @@ openload_check_folder() {
         # Skip empty names.
         [ -z "$FOLDER" ] && continue
 
+        # Get folders for the current FOLDER_ID.
+        JSON=$(curl $API_DATA $FOLDER_DATA "$API_URL/file/listfolder") || return
+
+        # {"status":200,"msg":"OK","result":{"folders": ...}}
+        openload_status "$JSON" || return
+
         # Grab only folder names with their ids and insert a newline between them.
-        JSON=$(curl $API_DATA $FOLDER_DATA "$API_URL/file/listfolder" \
-            | parse . '"folders":\(\[.*\]\),"files"' | replace_all '"},' '"},'$'\n') || return
+        FOLDER_LIST=$(parse . '"folders":\(\[.*\]\),"files"' <<< "$JSON" \
+            | replace_all '"},' '"},'$'\n') || return
 
         # Find a folder name with its id.
         FOLDER_ID=''
@@ -200,28 +159,13 @@ openload_check_folder() {
                 log_debug "Successfully found: '$FOLDER' with ID '$FOLDER_ID'"
                 break
             fi
-        done <<< "$JSON"
+        done <<< "$FOLDER_LIST"
 
         # If a folder name was not found then create it.
         if [ -z "$FOLDER_ID" ]; then
-            # Note: API doesn't have ability to create a new folder, so we have to do
-            # this through WWW. We need only a valid cookie. Normally we don't need it,
-            # but for the safety check if it's valid, otherwise renew session. This
-            # check is only relevant when --cache=shared, otherwise we will have
-            # always a valid cookie file during folder creation.
-            openload_check_cookie "$COOKIE_FILE" "$BASE_URL" || return
-
-            JSON=$(curl -b "$COOKIE_FILE" -d "name=$(uri_encode_strict <<< "$FOLDER")" \
-                -d "id=$PARENT_ID" "$BASE_URL/filemanager/createfolder" \
-                | replace_all '\"' '"') || return
-            STATUS=$(parse_json 'success' <<< "$JSON") || return
-            if [ "$STATUS" == '1' ]; then
-                FOLDER_ID=$(parse_json 'id' <<< "$JSON") || return
-                log_debug "Successfully created: '$FOLDER' with ID '$FOLDER_ID'"
-            else
-                log_error "Could not create folder: '$FOLDER'"
-                return $ERR_FATAL
-            fi
+            log_error "API doesn't have function to create a folder."
+            log_error "Could not found a folder: '$FOLDER'."
+            return $ERR_FATAL
         fi
 
         # Perverse data for the next loop.
@@ -245,7 +189,7 @@ openload_upload() {
     local -r BASE_URL='https://openload.co'
     local -r API_URL='https://api.openload.co/1'
     local MAX_SIZE MSG SIZE SHA1_DATA AA ACCOUNT
-    local API_DATA FOLDER_DATA UPLOAD_URL JSON STATUS
+    local API_DATA FOLDER_DATA UPLOAD_URL JSON
 
     # Sanity checks
     if [ -z "$AUTH" ]; then
@@ -297,7 +241,7 @@ openload_upload() {
     fi
 
     if [ -n "$AUTH" ]; then
-        AA=$(openload_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" "$API_URL") || return
+        AA=$(openload_login "$AUTH" "$API_URL") || return
         { read ACCOUNT; read API_DATA; } <<< "$AA"
 
         if [ -n "$FOLDER" ]; then
@@ -317,19 +261,14 @@ openload_upload() {
             -F "file1=@$FILE;filename=$DESTFILE" \
             "$UPLOAD_URL") || return
 
-        STATUS=$(parse_json 'status' <<< "$JSON") || return
-
-        if [ "$STATUS" != '200' ]; then
-            MSG=$(parse_json_quiet 'msg' <<< "$JSON")
-            log_error "Unexpected status $STATUS: $MSG"
-            return $ERR_FATAL
-        fi
+        # {"status":200,"msg":"OK","result":{"name": ...}}
+        openload_status "$JSON" || return
 
         parse_json 'url' <<< "$JSON" || return
 
     # Upload remote file
     else
-        local HEADER_DATA FILE_ID TRY BYTES_LOADED BYTES_TOTAL
+        local HEADER_DATA FILE_ID TRY STATUS BYTES_LOADED BYTES_TOTAL
 
         # Header data don't have to be send, but I need to enclose it in double quotes
         # in curl command, otherwise it won't work. Here is just empty dummy header.
@@ -345,13 +284,8 @@ openload_upload() {
         JSON=$(curl $API_DATA $FOLDER_DATA "$HEADER_DATA" \
             -d "url=$FILE" "$API_URL/remotedl/add") || return
 
-        STATUS=$(parse_json 'status' <<< "$JSON") || return
-
-        if [ "$STATUS" != '200' ]; then
-            MSG=$(parse_json_quiet 'msg' <<< "$JSON")
-            log_error "Unexpected status $STATUS: $MSG"
-            return $ERR_FATAL
-        fi
+        # {"status":200,"msg":"OK","result":{"id": ...}}
+        openload_status "$JSON" || return
 
         # If this is an async upload, we are done
         if [ -n "$ASYNC" ]; then
@@ -380,9 +314,6 @@ openload_upload() {
             elif [ "$STATUS" == 'finished' ]; then
                 parse_json 'url' <<< "$JSON" || return
                 break
-            elif [ "$STATUS" == 'error' ]; then
-                log_error "Upload error."
-                return $ERR_FATAL
             else
                 log_error "Unexpected status: $STATUS"
                 return $ERR_FATAL
