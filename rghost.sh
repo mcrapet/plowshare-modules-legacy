@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_RGHOST_REGEXP_URL='https\?://\(www\.\)\?rghost\.\(net\|ru\)/'
+MODULE_RGHOST_REGEXP_URL='https\?://\([[:alnum:]]\+\.\)\?rghost\.\(net\|ru\)/'
 
 MODULE_RGHOST_DOWNLOAD_OPTIONS="
 LINK_PASSWORD,p,link-password,S=PASSWORD,Used in password-protected files"
@@ -42,7 +42,7 @@ rghost_download() {
 
     local PAGE FILE_URL FILE_NAME FILE_URL2
 
-    PAGE=$(curl -c "$COOKIE_FILE" "$URL") || return
+    PAGE=$(curl -L -c "$COOKIE_FILE" "$URL") || return
 
     if match '<title>404 . page not found' "$PAGE"; then
         return $ERR_LINK_DEAD
@@ -193,7 +193,7 @@ rghost_probe() {
     local -r REQ_IN=$3
     local PAGE LOCATION FILE_SIZE REQ_OUT
 
-    PAGE=$(curl "$URL") || return
+    PAGE=$(curl -L "$URL") || return
 
     if match '<title>404 . page not found' "$PAGE"; then
         return $ERR_LINK_DEAD
