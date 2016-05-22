@@ -114,17 +114,13 @@ $JS" | javascript) || return
 # Static function. Check if specified folder name is valid.
 # If folder not found then create it. Support subfolders.
 # $1: folder name selected by user
-# $2: cookie file (logged into account)
-# $3: base URL
-# $4: API URL
-# $5: API Data
+# $2: API URL
+# $3: API Data
 # stdout: folder data
 openload_check_folder() {
     local -r NAME=$1
-    local -r COOKIE_FILE=$2
-    local -r BASE_URL=$3
-    local -r API_URL=$4
-    local -r API_DATA=$5
+    local -r API_URL=$2
+    local -r API_DATA=$3
     local FOLDER_NAMES FOLDER JSON FOLDER_DATA
     local FOLDER_ID FOLDER_LIST FOLDER_LINE PARENT_ID
 
@@ -178,15 +174,13 @@ openload_check_folder() {
 }
 
 # Upload a file to openload
-# $1: cookie file
+# $1: cookie file (unused)
 # $2: input file (with full path)
 # $3: remote filename
 # stdout: download link
 openload_upload() {
-    local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='https://openload.co'
     local -r API_URL='https://api.openload.co/1'
     local MAX_SIZE MSG SIZE SHA1_DATA AA ACCOUNT
     local API_DATA FOLDER_DATA UPLOAD_URL JSON
@@ -245,8 +239,8 @@ openload_upload() {
         { read ACCOUNT; read API_DATA; } <<< "$AA"
 
         if [ -n "$FOLDER" ]; then
-            FOLDER_DATA=$(openload_check_folder "$FOLDER" "$COOKIE_FILE" \
-                "$BASE_URL" "$API_URL" "$API_DATA") || return
+            FOLDER_DATA=$(openload_check_folder "$FOLDER" \
+                "$API_URL" "$API_DATA") || return
         fi
     fi
 
