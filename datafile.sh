@@ -29,7 +29,7 @@ datafile_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
     local -r BASE_URL='http://www.datafile.com'
-    local PAGE LOCATION WAIT_TIME FILE_URL
+    local PAGE LOCATION WAIT_SEC FILE_URL JSON FILEID TOKEN
 
     PAGE=$(curl -i -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
 
@@ -92,7 +92,8 @@ datafile_download() {
         log_error "fileDownloadLink response didn't have success = 1"
         return $ERR_FATAL
     fi
-    parse_json 'link' <<<"$JSON"
+    FILE_URL=$(parse_json 'link' <<<"$JSON")
+    echo $FILE_URL
     curl -I "$FILE_URL" | grep_http_header_content_disposition || return
 }
 
