@@ -8,6 +8,7 @@
 anonfiles       | download | upload |        |      | probe |
 bayfiles        | download | upload | delete |      | probe |
 bayimg          | download | upload | delete |      | probe |
+bigfile         | download | upload | delete | list | probe |
 billionuploads  | download | upload |        |      | probe |
 bitshare        | download | upload | delete |      | probe |
 catshare        | download |        |        |      | probe |
@@ -91,7 +92,6 @@ ultramegabit    | download | upload |        |      | probe |
 uplea           | download |        |        |      | probe |
 upload_cd       | download |        |        |      | probe |
 uploadboy       | download |        |        |      | probe |
-uploadable_ch   | download | upload | delete | list | probe |
 uploading       | download | upload |        |      | probe |
 uploaded_net    | download | upload | delete | list | probe |
 uploadrocket    | download | upload |        |      | probe |
