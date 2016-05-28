@@ -68,14 +68,14 @@ uloz_to_download() {
     local FORM_LINE FORM_TIMESTAMP FORM_SALT FORM_HASH FORM_DO
     local FORM_TOKEN FORM_TS FORM_CID FORM_ADI FORM_SIGN_A FORM_SIGN
     FORM_LINE=$(parse 'id="frm-downloadDialog-freeDownloadForm-freeDownload"' \
-        '^\(.*\)$' 1 <<< "$PAGE") || return
+        '^\(.*\)$' 2 <<< "$PAGE") || return
     FORM_TIMESTAMP=$(parse_json 'timestamp' <<< "$JSON") || return
     FORM_SALT=$(parse_json 'salt' <<< "$JSON") || return
     FORM_HASH=$(parse_json 'hash' <<< "$JSON") || return
     FORM_DO=$(parse . 'do" value="\([^"]*\)"' <<< "$FORM_LINE") || return
     FORM_TOKEN=$(parse . '_token_" value="\([^"]*\)"' <<< "$FORM_LINE") || return
     FORM_TS=$(parse . 'ts" value="\([^"]*\)"' <<< "$FORM_LINE") || return
-    FORM_CID=$(parse . 'cid" value="\([^"]*\)"' <<< "$FORM_LINE") || return
+    FORM_CID=$(parse_quiet . 'cid" value="\([^"]*\)"' <<< "$FORM_LINE")
     FORM_ADI=$(parse . 'adi" value="\([^"]*\)"' <<< "$FORM_LINE") || return
     FORM_SIGN_A=$(parse . 'sign_a" value="\([^"]*\)"' <<< "$FORM_LINE") || return
     FORM_SIGN=$(parse . 'sign" value="\([^"]*\)"' <<< "$FORM_LINE") || return
@@ -155,7 +155,7 @@ uloz_to_probe() {
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse_quiet 'id="fileSize"' '[[:space:]]\([[:digit:]].*B\)' 1 <<< "$PAGE") \
+        FILE_SIZE=$(parse_quiet '>Size<' '>Size<.*[[:space:]]\([[:digit:]].*B\)' <<< "$PAGE") \
             && [ -n "$FILE_SIZE" ] && FILE_SIZE=$(replace 'B' 'iB' <<< $FILE_SIZE) \
             && translate_size "$FILE_SIZE" && REQ_OUT="${REQ_OUT}s"
     fi
