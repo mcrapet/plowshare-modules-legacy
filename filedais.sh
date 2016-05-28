@@ -32,21 +32,22 @@ filedais_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
     local -r BASE_URL=$(basename_url "$URL")
-    local PAGE LOCATION WAIT_TIME FILE_URL
+    local PAGE LOCATION WAIT_TIME FILE_URL FORM_HTML
+    local PHP_URL FILE_ID FILE_NAME FORM_METHOD DANGER_DIV
 
     PAGE=$(curl -L -i -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
-    if match '<h1>Software error:</h1>'; then
+
+    if match '<h1>Software error:</h1>' "$PAGE"; then
         return $ERR_LINK_TEMP_UNAVAILABLE
-    fi
-    if match '<b>File Not Found</b>' "$PAGE"; then
+    elif match '<b>File Not Found</b>' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
     LOCATION=$(grep_http_header_location_quiet <<< "$PAGE")
-    if [[ "$LOCATION" = http* ]]; then
-        PHP_URL="$LOCATION"
+    if match_remote_url "$LOCATION"; then
+        PHP_URL=$LOCATION
     else
-        PHP_URL=${BASE_URL}$(grep_http_header_location_quiet <<< "$PAGE")
+        PHP_URL=$BASE_URL$LOCATION
     fi
 
     FORM_HTML=$(grep_form_by_order "$PAGE" 1) || return
@@ -54,12 +55,17 @@ filedais_download() {
     FILE_NAME=$(echo "$FORM_HTML" | parse_form_input_by_name 'fname')
     FORM_METHOD=$(echo "$FORM_HTML" | parse_form_input_by_name 'method_free')
 
-    PAGE=$(curl -i -c "$COOKIE_FILE" -b "$COOKIE_FILE" -d"op=download1" -d"id=$FILE_ID" -d"fname=$FILE_NAME" -d"method_free=$FORM_METHOD" $PHP_URL)
+    PAGE=$(curl -i -c "$COOKIE_FILE" -b "$COOKIE_FILE" \
+        -d 'op=download1' \
+        -d "id=$FILE_ID" \
+        -d "fname=$FILE_NAME" \
+        -d "method_free=$FORM_METHOD" \
+        $PHP_URL) || return
 
-    DANGER_DIV=$(parse_tag_quiet 'class="alert alert-danger"' 'div' <<<"$PAGE")
+    DANGER_DIV=$(parse_tag_quiet 'class="alert alert-danger"' 'div' <<< "$PAGE")
     if [[ -n "$DANGER_DIV" ]]; then
         if match 'You have to wait' "$DANGER_DIV"; then
-            WAIT_TIME=$(parse_quiet '.' ' ([0-9]+) seconds' <<<"$DANGER_DIV")
+            WAIT_TIME=$(parse_quiet . ' ([0-9]+) seconds' <<< "$DANGER_DIV")
             if [[ -n "$WAIT_TIME" ]]; then
                 echo $WAIT_TIME
             fi
@@ -72,23 +78,33 @@ filedais_download() {
     FORM_HTML=$(grep_form_by_order "$PAGE" 1) || return
     RAND=$(echo "$FORM_HTML" | parse_form_input_by_name 'rand') || return
 
-    WAIT_TIME=$(parse_tag '<span id="countdown_str">Wait' 'span' <<<"$PAGE") || return
+    WAIT_TIME=$(parse_tag '<span id="countdown_str">Wait' 'span' <<< "$PAGE") || return
     wait $WAIT_TIME || return
 
     local PUBKEY WCI CHALLENGE WORD ID
-    CHALLENGE_URL=$(parse_attr 'google\.com\/recaptcha\/api\/challenge?k=' 'src' <<<"$PAGE")
-    PUBKEY=$(parse '.' '?k=\([^&]\+\)' <<<"$CHALLENGE_URL" )
+    PUBKEY=$(parse '\/recaptcha\/api\/' '?k=\([^"]\+\)' <<< "$PAGE" )
     WCI=$(recaptcha_process $PUBKEY) || return
-    { read WORD; read CHALLENGE; read ID; } <<<"$WCI"
-    PAGE=$(curl -i -c "$COOKIE_FILE" -b "$COOKIE_FILE" -d"op=download2" -d"id=$FILE_ID" -d "referer=$PHP_URL" \
-                -d"recaptcha_challenge_field=$CHALLENGE" -d"recaptcha_response_field=$WORD" -d"down_script=1" \
-                -d"rand=$RAND" -d"method_free=$FORM_METHOD" $PHP_URL)
+    { read WORD; read CHALLENGE; read ID; } <<< "$WCI"
+
+    PAGE=$(curl -i -c "$COOKIE_FILE" -b "$COOKIE_FILE" \
+        -d 'op=download2' \
+        -d "id=$FILE_ID" \
+        -d "referer=$PHP_URL" \
+        -d "recaptcha_challenge_field=$CHALLENGE" \
+        -d "recaptcha_response_field=$WORD" \
+        -d 'down_script=1' \
+        -d "rand=$RAND" \
+        -d "method_free=$FORM_METHOD" \
+        $PHP_URL) || return
+
     if match '>Wrong captcha</div>' "$PAGE"; then
         captcha_nack "$ID"
         return $ERR_CAPTCHA
     fi
+
     captcha_ack "$ID"
-    echo $(parse_attr 'id="download1"' 'href' <<<"$PAGE")
+
+    parse_attr 'id="download1"' 'href' <<<"$PAGE"
     return 0
 }
 
@@ -101,25 +117,25 @@ filedais_probe() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
     local -r REQ_IN=$3
-    local PAGE REQ_OUT
+    local PAGE REQ_OUT FORM_HTML
+
     PAGE=$(curl -L -c "$COOKIE_FILE" -b "$COOKIE_FILE" "$URL") || return
 
     if matchi '>File Not Found<' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
+
     # TODO: use op=checkfiles if we need size
-    FORM_HTML=$(grep_form_by_order "$PAGE" 1)
-    if [[ -z "$FORM_HTML" ]]; then
-        return $ERR_FATAL
+    FORM_HTML=$(grep_form_by_order "$PAGE" 1) || return
+    REQ_OUT='c'
+
+    if [[ "$REQ_IN" = *f* ]]; then
+        parse_form_input_by_name 'fname' <<< "$FORM_HTML" && REQ_OUT="${REQ_OUT}f"
     fi
 
-    REQ_OUT='c'
-    if [[ "$REQ_IN" = *f* ]]; then
-        echo "$FORM_HTML" | parse_form_input_by_name 'fname' && REQ_OUT="${REQ_OUT}f"
-    fi
     if [[ "$REQ_IN" = *i* ]]; then
-        echo "$FORM_HTML" | parse_form_input_by_name 'id' && REQ_OUT="${REQ_OUT}i"
+        parse_form_input_by_name 'id'  <<< "$FORM_HTML" && REQ_OUT="${REQ_OUT}i"
     fi
+
     echo $REQ_OUT
-    return 0
 }
