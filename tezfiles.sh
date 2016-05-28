@@ -158,8 +158,8 @@ tezfiles_probe() {
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        FILE_NAME=$(parse '<h1' '^[[:space:]]*\([^<]\+\)' 1 <<< "$PAGE" | strip) && \
-            REQ_OUT="${REQ_OUT}f"
+        FILE_NAME=$(parse '<h1' '^[[:space:]]*\([^<]\+\)' 1 <<< "$PAGE") && \
+            echo ${FILE_NAME%% *} && REQ_OUT="${REQ_OUT}f"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
