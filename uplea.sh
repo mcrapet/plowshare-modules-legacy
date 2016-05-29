@@ -75,7 +75,7 @@ uplea_download() {
 uplea_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
-    local JSON ERR REQ_OUT STATUS
+    local JSON ERR REQ_OUT STATUS PAGE FILE_SIZE
     local -r BASE_URL='http://api.uplea.com/api/check-my-links'
 
     JSON=$(curl -F "json={ \"links\": [ \"$URL\" ] }" "$BASE_URL") || return
@@ -94,9 +94,23 @@ uplea_probe() {
         return $ERR_LINK_DEAD
     fi
 
-    # Note: Can't manage $ERR_LINK_NEED_PERMISSIONS with this link checker API.
-
     REQ_OUT=c
+
+    # Note: Can't manage $ERR_LINK_NEED_PERMISSIONS with this link checker API.
+    PAGE=$(curl -L "$URL")
+
+    if [[ $REQ_IN = *f* ]]; then
+        parse '^Download your file:' '>\([^<]\+\)' 3 <<< "$PAGE" && REQ_OUT="${REQ_OUT}f"
+    fi
+
+    if [[ $REQ_IN = *s* ]]; then
+        FILE_SIZE=$(parse '^Download your file:' '>\([^<]\+\)' 4 <<< "$PAGE") && \
+            translate_size "${FILE_SIZE/o/B}" && REQ_OUT="${REQ_OUT}s"
+    fi
+
+    if [[ $REQ_IN = *i* ]]; then
+        parse . '/\([[:alnum:]]\+\)$' <<< "$URL" && REQ_OUT="${REQ_OUT}i"
+    fi
 
     echo $REQ_OUT
 }
