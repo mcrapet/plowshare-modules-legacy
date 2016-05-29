@@ -28,7 +28,8 @@ MODULE_GO4UP_UPLOAD_REMOTE_SUPPORT=yes
 MODULE_GO4UP_DELETE_OPTIONS="
 AUTH_FREE,b,auth-free,a=EMAIL:PASSWORD,Free account (mandatory)"
 
-MODULE_GO4UP_LIST_OPTIONS=""
+MODULE_GO4UP_LIST_OPTIONS="
+PARTIAL_LINKS,,partial,,Don't wait for all available links. Report thoses currently available"
 MODULE_GO4UP_LIST_HAS_SUBFOLDERS=no
 
 # Switch language to english
@@ -292,7 +293,7 @@ go4up_upload() {
 go4up_list() {
     local URL=$1
     local BASE_URL='http://go4up.com'
-    local PAGE INFO_URL LINKS FILE_NAME
+    local PAGE INFO_URL LINKS FILE_NAME JSON
 
     go4up_switch_lang "$COOKIE_FILE" "$BASE_URL"
 
@@ -309,10 +310,20 @@ go4up_list() {
     FILE_NAME=$(parse '<h3' '<h3[[:space:]]*>\(.\+\)[[:space:]]\+([[:alnum:]]\+' \
         <<< "$PAGE") || return
 
-    PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL$INFO_URL" | break_html_lines_alt) || return
-    PAGE=$(replace_all '\"' '"' <<< "$PAGE")
-    PAGE=$(replace_all '\/' '/' <<< "$PAGE")
-    LINKS=$(parse_all_attr '^<a' 'href' <<< "$PAGE") || return
+    JSON=$(curl -b "$COOKIE_FILE" "$BASE_URL$INFO_URL") || return
+
+    # status: ok dead queued checking failed uploading
+    PAGE=$(parse_json status split <<< "$JSON") || return
+    if match 'queued\|uploading' "$PAGE"; then
+        # Is there at least a link available ?
+        [ -n "$PARTIAL_LINKS" ] || return $ERR_LINK_TEMP_UNAVAILABLE
+        match 'ok\|checking' "$PAGE" || return $ERR_LINK_TEMP_UNAVAILABLE
+        log_debug 'all links are not available yet, but continue anyway (--partial)'
+    fi
+
+    # "File currently in queue." will be dropped
+    PAGE=$(parse_json link split <<< "$JSON") || return
+    LINKS=$(parse_all_attr href <<< "$PAGE") || return
 
     while read INFO_URL; do
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL$INFO_URL") || return
