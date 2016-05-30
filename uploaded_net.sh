@@ -300,8 +300,9 @@ uploaded_net_download() {
     FILE_NAME=$(curl "$BASE_URL/file/$FILE_ID/status" | first_line) || return
 
     if [ "$ACCOUNT" = 'premium' ]; then
-        # Premium users can resume downloads
+        # Premium users can resume downloads and don't wait
         MODULE_UPLOADED_NET_DOWNLOAD_RESUME=yes
+        MODULE_UPLOADED_NET_DOWNLOAD_SUCCESSIVE_INTERVAL=0
 
         # Get download link, if this was a direct download
         FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
