@@ -97,6 +97,19 @@ rapidu_download() {
         return $ERR_LINK_DEAD
     fi
 
+    # If this is a premium download, we already have a download link.
+    if [ "$ACCOUNT" = 'premium' ]; then
+        # Get a download link, if this was a direct download.
+        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
+
+        if [ -z "$FILE_URL" ]; then
+            FILE_URL=$(parse_attr '>Premium Download<' 'href' <<< "$PAGE") || return
+        fi
+
+        echo "$FILE_URL"
+        return 0
+    fi
+
     JSON=$(curl -d '_go=' -e "$URL" "$BASE_URL/ajax.php?a=getLoadTimeToDownload") || return
     WAIT_TIME=$(($(parse_json 'timeToDownload' <<< "$JSON") - $(date +%s))) || return
     # Note: If we wait more then 5 minutes then we definitely reached downloads limit.
