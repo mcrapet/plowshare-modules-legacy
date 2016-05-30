@@ -18,12 +18,53 @@
 
 MODULE_FILESHARK_REGEXP_URL='https\?://\([[:alnum:]]\+\.\)\?fileshark\(\.xup\)\?\.pl/'
 
-MODULE_FILESHARK_DOWNLOAD_OPTIONS=""
+MODULE_FILESHARK_DOWNLOAD_OPTIONS="
+AUTH,a,auth,a=USER:PASSWORD,User account"
 MODULE_FILESHARK_DOWNLOAD_RESUME=no
 MODULE_FILESHARK_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
 MODULE_FILESHARK_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_FILESHARK_PROBE_OPTIONS=""
+
+# Static function. Proceed with login
+# $1: authentication
+# $2: cookie file
+# $3: base URL
+# stdout: account type ("free" or "premium") on success
+fileshark_login() {
+    local -r AUTH=$1
+    local -r COOKIE_FILE=$2
+    local -r BASE_URL=$3
+
+    local PAGE CSRF_TOKEN LOGIN_DATA JSON LOCATION NAME TYPE
+
+    PAGE=$(curl -c "$COOKIE_FILE" "$BASE_URL/zaloguj" | break_html_lines) || return
+    CSRF_TOKEN=$(parse_attr 'name="_csrf_token"' 'value' <<< "$PAGE") || return
+
+    LOGIN_DATA='_username=$USER&_password=$PASSWORD&_csrf_token='$CSRF_TOKEN''
+
+    JSON=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$BASE_URL/login_check" \
+        -H 'X-Requested-With: XMLHttpRequest' -b "$COOKIE_FILE") || return
+
+    # If successful an entry is added into a cookie file: session_id
+    LOCATION=$(parse_json_quiet 'redirect' <<< "$JSON") || return
+    if [ "$LOCATION" != "$BASE_URL/" ]; then
+        return $ERR_LOGIN_FAILED
+    fi
+
+    PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL")
+    NAME=$(parse_tag_quiet 'Witaj' 'a' <<< "$PAGE")
+    TYPE=$(parse 'Rodzaj konta' '>\(Standardowe\|Premium\)' <<< "$PAGE") || return
+
+    if [ "$TYPE" = 'Standardowe' ]; then
+        TYPE='free'
+    elif [ "$TYPE" = 'Premium' ]; then
+        TYPE='premium'
+    fi
+
+    log_debug "Successfully logged in as '$TYPE' member '$NAME'"
+    echo $TYPE
+}
 
 # Output a fileshark file download URL
 # $1: cookie file
@@ -31,7 +72,8 @@ MODULE_FILESHARK_PROBE_OPTIONS=""
 # stdout: real file download link
 fileshark_download() {
     local -r COOKIE_FILE=$1
-    local URL PAGE FILE_ID FREE_URL WAIT_TIME FILE_URL
+    local -r BASE_URL='http://fileshark.pl'
+    local URL ACCOUNT PAGE FILE_ID FREE_URL WAIT_TIME FILE_URL
     local CAPTCHA_BASE64 CAPTCHA_IMG FORM_TOKEN
 
     if ! check_exec 'base64'; then
@@ -44,7 +86,12 @@ fileshark_download() {
     [ -n "$URL" ] || URL=$2
     readonly URL
 
-    PAGE=$(curl -c "$COOKIE_FILE" -i "$URL") || return
+    if [ -n "$AUTH" ]; then
+        ACCOUNT=$(fileshark_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
+    fi
+
+    # Note: Save HTTP headers to catch premium users' "direct downloads".
+    PAGE=$(curl -i -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
 
     if match '404 Not Found' "$PAGE"; then
         return $ERR_LINK_DEAD
@@ -59,6 +106,24 @@ fileshark_download() {
         log_error 'Download limit reached.'
         parse 'var timeToDownload' ' = \([0-9]\+\);' <<< "$PAGE" || return
         return $ERR_LINK_TEMP_UNAVAILABLE
+    fi
+
+    # If this is a premium download, we already have a download link.
+    if [ "$ACCOUNT" = 'premium' ]; then
+        MODULE_FILESHARK_DOWNLOAD_RESUME=yes
+
+        # Get a download link, if this was a direct download.
+        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
+
+        if [ -z "$FILE_URL" ]; then
+            FILE_URL=$(parse_attr '>Pobierz<.*>bez ograniczeń<' 'href' <<< "$PAGE") || return
+            # Redirects one time.
+            FILE_URL=$(curl -i -b "$COOKIE_FILE" "$BASE_URL$FILE_URL" \
+                | grep_http_header_location) || return
+        fi
+
+        echo "$FILE_URL"
+        return 0
     fi
 
     FILE_ID=$(parse 'btn-upload-free' 'normal/\([[:digit:]]\+/[[:alnum:]]\+\)' <<< "$PAGE") || return
