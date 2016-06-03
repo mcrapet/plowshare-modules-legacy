@@ -24,6 +24,7 @@ embedupload     |          |        |        | list |       |
 espafiles       | download |        |        |      | probe |
 euroshare_eu    | download | upload | delete |      | probe |
 exoshare        |          | upload |        | list |       |
+faststore       | download |        |        |      | probe |
 fboom_me        | download |        |        |      | probe |
 filebin_ca      | download | upload |        |      | probe |
 filecloud       | download | upload |        | list | probe |
