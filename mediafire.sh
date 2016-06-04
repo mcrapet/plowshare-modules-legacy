@@ -257,47 +257,39 @@ mediafire_download() {
 
     # handle captcha (reCaptcha or SolveMedia) if there is one
     if match '<form[^>]*form_captcha' "$PAGE"; then
-        local FORM_CAPTCHA PUBKEY CHALLENGE ID RESP CAPTCHA_DATA SECURITY_CODE
+        local FORM_CAPTCHA PUBKEY CHALLENGE ID RESP CAPTCHA_DATA
 
         FORM_CAPTCHA=$(grep_form_by_name "$PAGE" 'form_captcha') || return
 
+        # We cannot resolve a graphic version of reCaptcha, so instead of
+        # resolving it, just force to resolve solvemedia. It simply works.
         if match 'class="g-recaptcha"' "$FORM_CAPTCHA"; then
-            log_debug 'reCaptcha found'
-
-            local WORD
-            PUBKEY='6LeGuMUSAAAAACGl-wDE9NNLuUZygPg7iNvMGtXD'
-            RESP=$(recaptcha_process $PUBKEY) || return
-            { read WORD; read CHALLENGE; read ID; } <<< "$RESP"
-
-            CAPTCHA_DATA="-d recaptcha_challenge_field=$CHALLENGE -d recaptcha_response_field=$WORD"
+            log_debug 'Graphic reCaptcha found'
+            log_debug 'Instead of resolving it, just force to resolve Solve Media CAPTCHA'
 
         elif match 'api\.solvemedia' "$FORM_CAPTCHA"; then
             log_debug 'Solve Media CAPTCHA found'
-
-            PUBKEY='Z94dMnWequbvKmy-HchLrZJ3-.qB6AJ1'
-            RESP=$(solvemedia_captcha_process $PUBKEY) || return
-            { read CHALLENGE; read ID; } <<< "$RESP"
-
-            CAPTCHA_DATA="--data-urlencode adcopy_challenge=$CHALLENGE -d adcopy_response=manual_challenge"
 
         else
             log_error 'Unexpected content/captcha type. Site updated?'
             return $ERR_FATAL
         fi
 
+        PUBKEY='Z94dMnWequbvKmy-HchLrZJ3-.qB6AJ1'
+        RESP=$(solvemedia_captcha_process $PUBKEY) || return
+        { read CHALLENGE; read ID; } <<< "$RESP"
+
+        CAPTCHA_DATA="--data-urlencode adcopy_challenge=$CHALLENGE -d adcopy_response=manual_challenge"
         log_debug "Captcha data: $CAPTCHA_DATA"
 
-        SECURITY_CODE=$(parse 'security' 'name="security" value="\([^"]*\)' \
-            <<< "$FORM_CAPTCHA") || return
-
         PAGE=$(curl --location -b "$COOKIE_FILE" --referer "$URL" \
-            -d "security=$SECURITY_CODE" $CAPTCHA_DATA "$BASE_URL/?$FILE_ID") || return
+            $CAPTCHA_DATA "$BASE_URL/?$FILE_ID") || return
 
         # After resolving captcha we are redirected to an error page, so once again load a proper page.
         PAGE=$(curl -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
 
         # Your entry was incorrect, please try again!
-        if match 'form name="form_captcha"' "$PAGE"; then
+        if match '<form[^>]*form_captcha' "$PAGE"; then
             captcha_nack $ID
             log_error 'Wrong captcha'
             return $ERR_CAPTCHA
