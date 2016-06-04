@@ -152,7 +152,7 @@ uploadrocket_download() {
     FORM_REF=$(parse_form_input_by_name_quiet 'referer' <<< "$FORM_HTML")
     FORM_METHOD_F=$(parse_form_input_by_name_quiet 'method_isfree' <<< "$FORM_HTML")
     FORM_METHOD_P=$(parse_form_input_by_name_quiet 'method_ispremium' <<< "$FORM_HTML")
-    FORM_DD=$(parse_form_input_by_name 'down_direct' <<< "$FORM_HTML") || return
+    FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
 
     local PUBKEY RESP CHALLENGE ID
     PUBKEY='mC2C7c.3-sHSuvEpXYQrUJ-TQy3PH2ET'
