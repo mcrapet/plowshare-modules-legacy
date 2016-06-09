@@ -89,7 +89,7 @@ openload_download() {
     wait $(($WAIT)) seconds || return
 
     # Obfuscated code with utf-8 variable names
-    JS=$(grep_script_by_order "$PAGE" 12) || return
+    JS=$(parse 'id="realdl"' '^\(.*\)$' 1 <<< "$PAGE") || return
     JS=${JS#<script type=\"text/javascript\">}
     JS=${JS%</script>}
 
