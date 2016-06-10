@@ -48,6 +48,7 @@ ge_tt           | download | upload |        | list | probe |
 gfile_ru        | download | upload |        |      | probe |
 go4up           |          | upload | delete | list |       |
 hdstream_to     | download | upload |        |      | probe |
+hexupload       | download |        |        |      | probe |
 hipfile         | download | upload | delete | list | probe |
 hotlink_cc      | download |        |        |      | probe |
 jheberg         |          | upload |        | list | probe |
