@@ -6,7 +6,7 @@ Here is current hosters support list:
 Few notes:
 * "account" means that both "free" and "premium" accounts are supported.
 * Emoticons meaning:
-  - :cookie: (**plowdown***) final url download requires cookies. Mostly valid for anonymous downloads.
+  - :cookie: (**plowdown**) final url download requires cookies. Mostly valid for anonymous downloads.
   - :lock: mandatory login (it's common to have anonymous upload disabled by hosters).
  -  :recycle: session management is handled by module (avoids multiple logins).
   - :rocket: (**plowup**) supports remote upload (usually requires premium account).
