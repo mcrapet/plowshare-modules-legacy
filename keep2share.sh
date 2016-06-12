@@ -209,11 +209,26 @@ keep2share_download() {
             "${API_URL}GetUrl") || return
 
         # {"status":"success","code":200,"message":"Captcha accepted, please wait","free_download_key": ...}
+        # {"message":"Invalid captcha code","status":"error","code":406,"errorCode":31}
+        # {"message":"Download not available","status":"error","code":406,"errorCode":42,"errors":[{"code":5,"timeRemaining":"1510.000000"}]}
         STATUS=$(parse_json 'status' <<< "$JSON") || return
         if [ "$STATUS" != 'success' ]; then
-            captcha_nack $ID
-            log_error 'Wrong captcha'
-            return $ERR_CAPTCHA
+            STATUS=$(parse_json_quiet 'errorCode' <<< "$JSON")
+            # ERROR_CAPTCHA_INVALID
+            if [ "$STATUS" = 31 ]; then
+                captcha_nack $ID
+                log_error 'Wrong captcha'
+                return $ERR_CAPTCHA
+            # ERROR_DOWNLOAD_NOT_AVAILABLE
+            elif [ "$STATUS" = 42 ]; then
+                WAIT=$(parse_json_quiet 'timeRemaining' <<< "$JSON")
+                [ -z "$WAIT" ] || echo "${WAIT%.*}"
+                return $ERR_LINK_TEMP_UNAVAILABLE
+            else
+                STATUS=$(parse_json 'message' <<< "$JSON")
+                log_error "Unexpected remote error: $STATUS"
+                return $ERR_FATAL
+            fi
         fi
 
         captcha_ack $ID
