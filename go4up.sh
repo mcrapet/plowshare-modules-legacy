@@ -214,8 +214,8 @@ go4up_upload() {
         FORM_HOSTS="$FORM_HOSTS -F box[]=$NUM"
     done
 
-    local UPLOAD_ID_RND SERVER FORM_NAMES FORM_VALUES FILE_NAME
-    local FILE_NAME_ORIG FORM_POST FILE_ID JSON STATUS PARAMS
+    local UPLOAD_ID_RND SERVER FORM_NAMES FORM_VALUES
+    local FORM_POST FILE_ID JSON STATUS PARAMS
 
     # Upload local file
     if ! match_remote_url "$FILE"; then
