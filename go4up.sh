@@ -235,23 +235,14 @@ go4up_upload() {
         FORM_NAMES=$(parse_all_attr 'textarea' 'name' <<< "$PAGE") || return
         FORM_VALUES=$(parse_all_tag_quiet 'textarea' <<< "$PAGE")
 
-        # Note: Form must be send in multipart manner, but in a filename
-        #       we may have spaces, so individually treat a filename in
-        #       curl command and quote it there.
+        # Note: Form must be send in a multipart manner. Using an array we
+        #       are confident that values with spaces will be treat properly.
         while read -r NAME && read -r VALUE <&3; do
-            if [ "$NAME" == 'file_name[]' ]; then
-                FILE_NAME="$VALUE"
-            elif [ "$NAME" == 'file_name_orig[]' ]; then
-                FILE_NAME_ORIG="$VALUE"
-            else
-                FORM_POST="$FORM_POST -F $NAME=$(uri_encode <<< $VALUE)"
-            fi
+            FORM_POST=("${FORM_POST[@]}" "-F $NAME=$VALUE")
         done <<< "$FORM_NAMES" 3<<< "$FORM_VALUES"
 
         PAGE=$(curl -b "$COOKIE_FILE" \
-            -F "file_name[]=$FILE_NAME" \
-            -F "file_name_orig[]=$FILE_NAME_ORIG" \
-            $FORM_POST \
+            "${FORM_POST[@]}" \
             -L "$BASE_URL/home/upload_process") || return
 
     # Upload remote file
