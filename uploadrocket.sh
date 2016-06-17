@@ -36,6 +36,7 @@ PUBLISH_FILE,,publish,,Mark file to be published
 PROXY,,proxy,s=PROXY,Proxy for a remote link"
 MODULE_UPLOADROCKET_UPLOAD_REMOTE_SUPPORT=yes
 
+MODULE_UPLOADROCKET_DELETE_OPTIONS=""
 MODULE_UPLOADROCKET_PROBE_OPTIONS=""
 
 # Switch language to english
