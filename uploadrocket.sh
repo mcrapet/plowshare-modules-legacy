@@ -19,7 +19,8 @@
 MODULE_UPLOADROCKET_REGEXP_URL='https\?://\(www\.\)\?uploadrocket\.net/'
 
 MODULE_UPLOADROCKET_DOWNLOAD_OPTIONS="
-AUTH,a,auth,a=USER:PASSWORD,User account"
+AUTH,a,auth,a=USER:PASSWORD,User account
+LINK_PASSWORD,p,link-password,S=PASSWORD,Used in password-protected files"
 MODULE_UPLOADROCKET_DOWNLOAD_RESUME=yes
 MODULE_UPLOADROCKET_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
 MODULE_UPLOADROCKET_DOWNLOAD_SUCCESSIVE_INTERVAL=
@@ -105,8 +106,8 @@ uploadrocket_login() {
 uploadrocket_download() {
     local -r COOKIE_FILE=$1
     local -r BASE_URL='http://uploadrocket.net'
-    local URL ACCOUNT PAGE ERR FORM_HTML FORM_OP FORM_USR FORM_ID
-    local FORM_REF FORM_METHOD_F FORM_METHOD_P FORM_RAND FORM_DD
+    local URL ACCOUNT PAGE PASSWORD_DATA ERR FORM_HTML FORM_OP FORM_USR
+    local FORM_ID FORM_REF FORM_METHOD_F FORM_METHOD_P FORM_RAND FORM_DS
 
     # Get a canonical URL for this file.
     URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
@@ -145,6 +146,22 @@ uploadrocket_download() {
         --data-urlencode "method_isfree=$FORM_METHOD_F" \
         "$URL") || return
 
+    # Check for premium only files.
+    if match '>This file is available for Premium Users only' "$PAGE"; then
+        log_error 'This file is available for Premium Users only.'
+        return $ERR_LINK_NEED_PERMISSIONS
+
+    # Check for files that need a password.
+    elif match 'Password:.*name="password"' "$PAGE"; then
+        log_debug 'File is password protected.'
+
+        if [ -z "$LINK_PASSWORD" ]; then
+            LINK_PASSWORD=$(prompt_for_password) || return
+        fi
+
+        PASSWORD_DATA="-d password=$(replace_all ' ' '+' <<< "$LINK_PASSWORD")"
+    fi
+
     FORM_HTML=$(grep_form_by_id "$PAGE" 'ID_F1') || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
@@ -152,7 +169,7 @@ uploadrocket_download() {
     FORM_REF=$(parse_form_input_by_name_quiet 'referer' <<< "$FORM_HTML")
     FORM_METHOD_F=$(parse_form_input_by_name_quiet 'method_isfree' <<< "$FORM_HTML")
     FORM_METHOD_P=$(parse_form_input_by_name_quiet 'method_ispremium' <<< "$FORM_HTML")
-    FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
+    FORM_DS=$(parse_form_input_by_name_quiet 'down_script' <<< "$FORM_HTML")
 
     local PUBKEY RESP CHALLENGE ID
     PUBKEY='mC2C7c.3-sHSuvEpXYQrUJ-TQy3PH2ET'
@@ -164,19 +181,25 @@ uploadrocket_download() {
         -d "id=$FORM_ID" \
         -d "rand=$FORM_RAND" \
         -d "referer=$FORM_REF" \
+        $PASSWORD_DATA \
         --data-urlencode "method_isfree=$FORM_METHOD_F" \
         --data-urlencode "method_ispremium=$FORM_METHOD_P" \
         --data-urlencode 'adcopy_response=manual_challenge' \
         --data-urlencode "adcopy_challenge=$CHALLENGE" \
+        -d "down_script=$FORM_DS" \
         "$URL") || return
 
     ERR=$(parse_quiet '<div class="err">' '^\(.*\)$' 1 <<< "$PAGE" | strip)
 
     if [ -n "$ERR" ]; then
         if [ "$ERR" = 'Wrong captcha' ]; then
-                captcha_nack $ID
-                log_error 'Wrong captcha'
-                return $ERR_CAPTCHA
+            captcha_nack $ID
+            log_error 'Wrong captcha'
+            return $ERR_CAPTCHA
+
+        elif [ "$ERR" = 'Wrong password' ]; then
+            log_error 'Wrong password'
+            return $ERR_LINK_PASSWORD_REQUIRED
         fi
 
         log_error "Unexpected error: $ERR"
