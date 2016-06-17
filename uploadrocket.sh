@@ -104,7 +104,7 @@ uploadrocket_login() {
 # stdout: real file download link
 uploadrocket_download() {
     local -r COOKIE_FILE=$1
-    local -r BASE_URL='http://uploadrocket.net/'
+    local -r BASE_URL='http://uploadrocket.net'
     local URL ACCOUNT PAGE ERR FORM_HTML FORM_OP FORM_USR FORM_ID
     local FORM_REF FORM_METHOD_F FORM_METHOD_P FORM_RAND FORM_DD
 
@@ -259,7 +259,7 @@ uploadrocket_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://uploadrocket.net/'
+    local -r BASE_URL='http://uploadrocket.net'
     local MAX_SIZE MSG SIZE ACCOUNT FOLDER_ID PAGE USER_TYPE UPLOAD_ID
 
     # Sanity checks
@@ -443,6 +443,35 @@ uploadrocket_upload() {
     echo "$FILE_DEL_URL"
 }
 
+# Delete a file uploaded to uploadrocket
+# $1: cookie file (unused here)
+# $2: delete url
+uploadrocket_delete() {
+    local -r URL=$2
+    local -r BASE_URL='http://uploadrocket.net'
+    local FILE_ID FILE_DEL_ID PAGE
+
+    FILE_ID=$(parse . "^$BASE_URL/\([[:alnum:]]\+\)" <<< "$URL") || return
+    FILE_DEL_ID=$(parse . 'killcode=\([[:alnum:]]\+\)$' <<< "$URL") || return
+
+    PAGE=$(curl -b 'lang=english' -e "$URL" \
+        -d "op=del_file" \
+        -d "id=$FILE_ID" \
+        -d "del_id=$FILE_DEL_ID" \
+        -d "confirm=yes" \
+        "$BASE_URL") || return
+
+    if match 'File deleted successfully' "$PAGE"; then
+        return 0
+    elif match 'No such file exist' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    elif match 'Wrong Delete ID' "$PAGE"; then
+        log_error 'Wrong delete ID'
+    fi
+
+    return $ERR_FATAL
+}
+
 # Probe a download URL
 # $1: cookie file (unused here)
 # $2: uploadrocket url
@@ -451,7 +480,7 @@ uploadrocket_upload() {
 uploadrocket_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
-    local -r BASE_URL='http://uploadrocket.net/'
+    local -r BASE_URL='http://uploadrocket.net'
     local PAGE FILE_SIZE REQ_OUT
 
     # Check a file through a link checker.

@@ -96,7 +96,7 @@ upload_cd       | download |        |        |      | probe |
 uploadboy       | download |        |        |      | probe |
 uploading       | download | upload |        |      | probe |
 uploaded_net    | download | upload | delete | list | probe |
-uploadrocket    | download | upload |        |      | probe |
+uploadrocket    | download | upload | delete |      | probe |
 upstore         | download | upload |        |      | probe |
 uptobox         | download | upload |        |      | probe |
 videowood_tv    |          | upload |        |      |       |
