@@ -212,7 +212,7 @@ faststore_download() {
             LINK_PASSWORD=$(prompt_for_password) || return
         fi
 
-        PASSWORD_DATA="-d password=$LINK_PASSWORD"
+        PASSWORD_DATA="-d password=$(replace_all ' ' '+' <<< "$LINK_PASSWORD")"
     fi
 
     FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
