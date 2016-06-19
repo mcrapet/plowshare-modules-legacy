@@ -1,5 +1,5 @@
 # Plowshare Rockfile.eu module
-# Copyright (c) 2015 Plowshare team
+# Copyright (c) 2016 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -25,6 +25,97 @@ LINK_PASSWORD,p,link-password,S=PASSWORD,Protect a link with a password
 TOEMAIL,,email-to,e=EMAIL,<To> field for notification email"
 MODULE_ROCKFILE_EU_UPLOAD_REMOTE_SUPPORT=no
 
+# Static function. Check for and handle "DDoS protection"
+# $1: full content of initial page
+# $2: cookie file
+# $3: url (base url or file url)
+rockfile_eu_cloudflare() {
+    local PAGE=$1
+    local -r COOKIE_FILE=$2
+    local -r BASE_URL="$(basename_url "$3")"
+
+    # check for DDoS protection
+    # <title>Just a moment...</title>
+    if [[ $(parse_tag 'title' <<< "$PAGE") = *Just\ a\ moment* ]]; then
+        local TRY FORM_HTML FORM_VC FORM_PASS FORM_ANSWER JS
+
+        detect_javascript || return
+
+        # Note: We may not pass DDoS protection for the first time.
+        #       Limit loop to max 5.
+        TRY=0
+        while (( TRY++ < 5 )); do
+            log_debug "CloudFlare DDoS protection found - try $TRY"
+
+            wait 5 || return
+
+            FORM_HTML=$(grep_form_by_id "$PAGE" 'challenge-form') || return
+            FORM_VC=$(parse_form_input_by_name 'jschl_vc' <<< "$FORM_HTML") || return
+            FORM_PASS=$(parse_form_input_by_name 'pass' <<< "$FORM_HTML") || return
+
+            # Obfuscated javascript code
+            JS=$(grep_script_by_order "$PAGE") || return
+            JS=${JS#*<script type=\"text/javascript\">}
+            JS=${JS%*</script>}
+
+            FORM_ANSWER=$(echo "
+                function a_obj() {
+                    this.style = new Object();
+                    this.style.display = new Object();
+                };
+                function form_obj() {
+                    this.submit = function () {
+                        return;
+                    }
+                };
+                function href_obj() {
+                    this.firstChild = new Object();
+                    this.firstChild.href = '$BASE_URL/';
+                };
+                var elts = new Array();
+                var document = {
+                    attachEvent: function(name,value) {
+                        return value();
+                    },
+                    createElement: function(id) {
+                        return new href_obj();
+                    },
+                    getElementById: function(id) {
+                        if (! elts[id] && id == 'cf-content') {
+                            elts[id] = new a_obj();
+                        }
+                        if (! elts[id] && id == 'challenge-form') {
+                            elts[id] = new form_obj();
+                        }
+                        if (! elts[id]) {
+                            elts[id] = {};
+                        }
+                        return elts[id];
+                    }
+                };
+                var final_fun;
+                function setTimeout(value,time) {
+                    final_fun = value;
+                };
+                $JS
+                final_fun();
+                if (typeof console === 'object' && typeof console.log === 'function') {
+                    console.log(elts['jschl-answer'].value);
+                } else {
+                    print(elts['jschl-answer'].value);
+                }" | javascript) || return
+
+                # Set-Cookie: cf_clearance
+                PAGE=$(curl -L -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
+                    "$BASE_URL/cdn-cgi/l/chk_jschl?jschl_vc=$FORM_VC&pass=$FORM_PASS&jschl_answer=$FORM_ANSWER") || return
+
+                if [[ $(parse_tag 'title' <<< "$PAGE") != *Just\ a\ moment* ]]; then
+                    break
+                fi
+            done
+        fi
+}
+
 # Static function. Proceed with login
 # $1: credentials string
 # $2: cookie file
@@ -37,7 +128,8 @@ rockfile_eu_login() {
     local LOGIN_DATA LOGIN_RESULT NAME ERR
 
     LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
-    LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$BASE_URL") || return
+    LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
+        "$BASE_URL" -b "$COOKIE_FILE") || return
 
     # Set-Cookie: login xfss
     NAME=$(parse_cookie_quiet 'login' < "$COOKIE_FILE")
@@ -79,6 +171,9 @@ rockfile_eu_upload() {
         SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
         log_debug "session (cached): '$SESS'"
     elif [ -n "$AUTH" ]; then
+        PAGE=$(curl -c "$COOKIE_FILE" "$BASE_URL") || return
+        rockfile_eu_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL" || return
+
         rockfile_eu_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" -b 'lang=english' || return
         storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
 
@@ -119,8 +214,10 @@ rockfile_eu_upload() {
     FORM_OP=$(parse_tag "name='op'" textarea <<< "$PAGE") || return
 
     if [ "$FORM_ST" = 'OK' ]; then
-        PAGE=$(curl \
-            -d "fn=$FORM_FN" -d "st=$FORM_ST" -d "op=$FORM_OP" \
+        PAGE=$(curl -b "$COOKIE_FILE" \
+            -d "fn=$FORM_FN" \
+            -d "st=$FORM_ST" \
+            -d "op=$FORM_OP" \
             "$FORM_ACTION") || return
 
         parse '>Download Link<' '">\(.*\)$' 1 <<< "$PAGE" || return
