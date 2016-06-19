@@ -244,7 +244,7 @@ uploadrocket_check_folder() {
         [ -z "$FOLDER" ] && continue
 
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_files&fld_id=$FOLDER_ID") || return
-        FOLDER_ID=$(parse_quiet . 'fld_id=\([^"]\+\)".*>'$FOLDER'<' <<< "$PAGE")
+        FOLDER_ID=$(parse_quiet . 'fld_id=\([^"]\+\)".*>'"$FOLDER"'<' <<< "$PAGE")
 
         # Create new folder.
         if [ -z "$FOLDER_ID" ]; then
@@ -263,7 +263,7 @@ uploadrocket_check_folder() {
                 -d 'to_folder=' \
                 -L "$BASE_URL") || return
 
-            FOLDER_ID=$(parse . 'fld_id=\([^"]\+\)".*>'$FOLDER'<' <<< "$PAGE") || return
+            FOLDER_ID=$(parse . 'fld_id=\([^"]\+\)".*>'"$FOLDER"'<' <<< "$PAGE") || return
             log_debug "Successfully created: '$FOLDER' with ID '$FOLDER_ID'"
         else
             log_debug "Successfully found: '$FOLDER' with ID '$FOLDER_ID'"
