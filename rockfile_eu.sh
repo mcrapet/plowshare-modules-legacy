@@ -116,29 +116,70 @@ rockfile_eu_cloudflare() {
         fi
 }
 
+# Switch language to english
+# $1: cookie file
+# $2: base URL
+rockfile_eu_switch_lang() {
+    # Set-Cookie: lang
+    curl "$2" -b "$1" -c "$1" -d 'op=change_lang' \
+        -d 'lang=english' > /dev/null || return
+}
+
 # Static function. Proceed with login
-# $1: credentials string
+# $1: authentication
 # $2: cookie file
-# $3: base url
+# $3: base URL
+# stdout: account type ("free" or "premium") on success.
 rockfile_eu_login() {
-    local AUTH=$1
-    local COOKIE_FILE=$2
-    local BASE_URL=$3
+    local -r AUTH=$1
+    local -r COOKIE_FILE=$2
+    local -r BASE_URL=$3
+    local CV PAGE SESS MSG LOGIN_DATA STATUS NAME TYPE
 
-    local LOGIN_DATA LOGIN_RESULT NAME ERR
+    if CV=$(storage_get 'cookie_file'); then
+        echo "$CV" >"$COOKIE_FILE"
 
-    LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
-    LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
-        "$BASE_URL" -b "$COOKIE_FILE") || return
+        # Check for expired session.
+        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/account") || return
+        if ! match '>Used space:<' "$PAGE"; then
+            storage_set 'cookie_file'
+            return $ERR_EXPIRED_SESSION
+        fi
 
-    # Set-Cookie: login xfss
-    NAME=$(parse_cookie_quiet 'login' < "$COOKIE_FILE")
-    if [ -n "$NAME" ]; then
-        log_debug "Successfully logged in as $NAME member"
-        return 0
+        SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
+        log_debug "session (cached): '$SESS'"
+        MSG='reused login for'
+    else
+        PAGE=$(curl -c "$COOKIE_FILE" "$BASE_URL") || return
+        rockfile_eu_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL" || return
+        rockfile_eu_switch_lang "$COOKIE_FILE" "$BASE_URL" || return
+
+        LOGIN_DATA='op=login&redirect=account&login=$USER&password=$PASSWORD'
+
+        PAGE=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
+            "$BASE_URL" -L -b "$COOKIE_FILE") || return
+
+        # If successful Set-Cookie: login xfss
+        STATUS=$(parse_cookie_quiet 'xfss' < "$COOKIE_FILE")
+        [ -z "$STATUS" ] && return $ERR_LOGIN_FAILED
+
+        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
+
+        SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
+        log_debug "session (new): '$SESS'"
+        MSG='logged in as'
     fi
 
-    return $ERR_LOGIN_FAILED
+    NAME=$(parse_cookie_quiet 'login' < "$COOKIE_FILE")
+
+    if match 'Go premium<' "$PAGE"; then
+        TYPE='free'
+    else
+        TYPE='premium'
+    fi
+
+    log_debug "Successfully $MSG '$TYPE' member '$NAME'"
+    echo $TYPE
 }
 
 # Upload a file to rockfile.eu
@@ -152,33 +193,12 @@ rockfile_eu_upload() {
     local -r DESTFILE=$3
     local -r BASE_URL='https://rockfile.eu'
 
-    local CV PAGE SESS USER_TYPE UPLOAD_ID TAGS_STR
+    local ACCOUNT PAGE USER_TYPE UPLOAD_ID TAGS_STR
     local FORM_HTML FORM_ACTION FORM_UTYPE FORM_SESS FORM_SRV_TMP FORM_BUTTON
     local FORM_FN FORM_ST FORM_OP
 
-    if CV=$(storage_get 'cookie_file'); then
-        echo "$CV" >"$COOKIE_FILE"
-
-        # Check for expired session
-        PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL/account") || return
-        if ! match '\("#accountconfig"\|>Used Space Bar<\)' "$PAGE"; then
-            log_error 'Expired session, delete cache entry'
-            storage_set 'cookie_file'
-            echo 1
-            return $ERR_LINK_TEMP_UNAVAILABLE
-        fi
-
-        SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
-        log_debug "session (cached): '$SESS'"
-    elif [ -n "$AUTH" ]; then
-        PAGE=$(curl -c "$COOKIE_FILE" "$BASE_URL") || return
-        rockfile_eu_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL" || return
-
-        rockfile_eu_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" -b 'lang=english' || return
-        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
-
-        SESS=$(parse_cookie 'xfss' < "$COOKIE_FILE")
-        log_debug "session (new): '$SESS'"
+    if [ -n "$AUTH" ]; then
+        ACCOUNT=$(rockfile_eu_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
     else
         return $ERR_LINK_NEED_PERMISSIONS
     fi
