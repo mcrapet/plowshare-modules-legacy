@@ -29,6 +29,8 @@ PUBLISH_FILE,,publish,,Mark file to be published
 PROXY,,proxy,s=PROXY,Proxy for a remote link"
 MODULE_ROCKFILE_EU_UPLOAD_REMOTE_SUPPORT=yes
 
+MODULE_ROCKFILE_EU_DELETE_OPTIONS=""
+
 # Static function. Check for and handle "DDoS protection"
 # $1: full content of initial page
 # $2: cookie file
@@ -256,7 +258,7 @@ rockfile_eu_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='https://rockfile.eu'
+    local -r BASE_URL='http://rockfile.eu'
     local ACCOUNT MAX_SIZE SIZE FOLDER_ID PAGE USER_TYPE UPLOAD_ID
 
     # User account is mandatory
@@ -417,4 +419,37 @@ rockfile_eu_upload() {
 
     echo "$FILE_URL"
     echo "$FILE_DEL_URL"
+}
+
+# Delete a file uploaded to rockfile_eu
+# $1: cookie file
+# $2: delete url
+rockfile_eu_delete() {
+    local -r COOKIE_FILE=$1
+    local -r URL=$2
+    local -r BASE_URL='http://rockfile.eu'
+    local FILE_ID FILE_DEL_ID PAGE
+
+    PAGE=$(curl "$URL") || return
+    rockfile_eu_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL" || return
+
+    FILE_ID=$(parse . "^$BASE_URL/\([[:alnum:]]\+\)" <<< "$URL") || return
+    FILE_DEL_ID=$(parse . 'killcode=\([[:alnum:]]\+\)$' <<< "$URL") || return
+
+    PAGE=$(curl -b "$COOKIE_FILE" -e "$URL" \
+        -d "op=del_file" \
+        -d "id=$FILE_ID" \
+        -d "del_id=$FILE_DEL_ID" \
+        -d "confirm=yes" \
+        "$BASE_URL") || return
+
+    if match 'File deleted successfully' "$PAGE"; then
+        return 0
+    elif match 'No such file exist' "$PAGE"; then
+        return $ERR_LINK_DEAD
+    elif match 'Wrong Delete ID' "$PAGE"; then
+        log_error 'Wrong delete ID'
+    fi
+
+    return $ERR_FATAL
 }
