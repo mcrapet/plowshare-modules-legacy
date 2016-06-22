@@ -362,9 +362,14 @@ add_padding() {
 # $3: requested capability list
 # stdout: 1 capability per line
 depositfiles_probe() {
-    local -r URL=$2
+    local URL=$2
     local -r REQ_IN=$3
     local PAGE REQ_OUT FILE_NAME FILE_SIZE
+
+    # Note: Attach at the end of link ?redirect phrase.
+    #       Without it dead links may behave as normal links.
+    URL="${URL%?redirect}?redirect"
+    readonly URL
 
     PAGE=$(curl --location -b 'lang_current=en' "$URL") || return
 
