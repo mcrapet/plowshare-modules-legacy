@@ -163,7 +163,7 @@ uptobox_download() {
             -d "method_premium=$FORM_METHOD" "$URL") || return
 
         # Click here to start your download
-        FILE_URL=$(parse_attr '/d/' 'href' <<< "$FORM_HTML")
+        FILE_URL=$(parse_attr '/d/' 'href' <<< "$PAGE")
         if match_remote_url "$FILE_URL"; then
             echo "$FILE_URL"
             return 0
