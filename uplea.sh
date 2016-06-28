@@ -59,6 +59,11 @@ uplea_download() {
     FILE_URL=$(parse_attr '=.button-download' href <<< "$PAGE") || return
     FILE_NAME=$(parse_tag '=.gold-text' span <<< "$PAGE")
 
+    # Detect email protection (filename contains @)
+    if match 'href="/cdn-cgi/l/email-protection"' "$FILE_NAME"; then
+        FILE_NAME=
+    fi
+
     # $('#ulCounter').ulCounter({'timer':10});
     WAIT_TIME=$(parse '#ulCounter' ':\([[:digit:]]\+\)' <<< "$PAGE") || WAIT_TIME=10
     wait $((WAIT_TIME)) || return
