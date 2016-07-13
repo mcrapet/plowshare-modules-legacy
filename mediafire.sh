@@ -305,13 +305,22 @@ mediafire_download() {
         if [ -z "$LINK_PASSWORD" ]; then
             LINK_PASSWORD=$(prompt_for_password) || return
         fi
+        FORM_HTML=$(grep_form_by_name "$PAGE" 'form_password')
+        SEC=$(echo "$FORM_HTML" | parse_form_input_by_name 'security')
         PAGE=$(curl -L --post301 -b "$COOKIE_FILE" \
-            -d "downloadp=$LINK_PASSWORD" "$URL" | break_html_lines) || return
+                    -d "downloadp=$LINK_PASSWORD" \
+                    -d "security=$SEC" \
+                    "$BASE_URL/?$FILE_ID" | break_html_lines) || return
 
         match 'name="downloadp"' "$PAGE" && return $ERR_LINK_PASSWORD_REQUIRED
     fi
 
-    JS_VAR=$(echo "$PAGE" | parse 'function[[:space:]]*_' '"\([^"]\+\)";' 1) || return
+    if match "The page you attempted to load is not intended to be accessed directly." "${PAGE}"; then
+        log_debug "Direct Access Denied"
+        PAGE=$(curl -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
+    fi
+
+    JS_VAR=$(echo "$PAGE" | parse 'function[[:space:]]*_' '"\(.\+\)";' 1)
 
     # extract + output download link + file name
     mediafire_get_ofuscated_link "$JS_VAR" | parse_attr href || return
