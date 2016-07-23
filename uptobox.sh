@@ -1,5 +1,5 @@
 # Plowshare uptobox.com module
-# Copyright (c) 2012-2015 Plowshare team
+# Copyright (c) 2012-2016 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -136,6 +136,10 @@ uptobox_download() {
     # The file you were looking for could not be found, sorry for any inconvenience
     if matchi '<span[[:space:]].*File Not Found' "$PAGE"; then
         return $ERR_LINK_DEAD
+    elif match '<font class="err"><div class="page-top" align="center">Maintenance</div>' "$PAGE"; then
+        log_error 'Remote error: maintenance'
+        echo 3600
+        return $ERR_LINK_TEMP_UNAVAILABLE
     fi
 
     # Send (post) form
