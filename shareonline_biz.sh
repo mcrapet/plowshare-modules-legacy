@@ -62,7 +62,7 @@ shareonline_biz_login() {
         'Sammler')
             TYPE='free'
             ;;
-        'Premium'|'Penalty-Premium'|'VIP-Special')
+        'Premium'|'Penalty-Premium'|'VIP-Special'|'VIP')
             [ "$TYPE" = 'Penalty-Premium' ] && log_error 'Account is in penalty state!'
             TYPE='premium'
             ;;
