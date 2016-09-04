@@ -189,13 +189,15 @@ uptobox_download() {
         # You have to wait X minutes, Y seconds till next download
         # You have to wait Y seconds till next download
         elif matchi 'You have to wait' "$PAGE"; then
-            local MINS SECS
+            local HOURS MINS SECS
+            HOURS=$(parse_quiet '>You have to wait' \
+                '[[:space:]]\([[:digit:]]\+\) hour' <<< "$PAGE") || HOURS=0
             MINS=$(parse_quiet '>You have to wait' \
                 '[[:space:]]\([[:digit:]]\+\) minute' <<< "$PAGE") || MINS=0
             SECS=$(parse '>You have to wait' \
                 '[[:space:]]\([[:digit:]]\+\) second' 2>/dev/null <<< "$PAGE") || SECS=1
 
-            echo $(( MINS * 60 + SECS ))
+            echo $(( HOURS * 3600 + MINS * 60 + SECS ))
             return $ERR_LINK_TEMP_UNAVAILABLE
 
         elif match 'Expired download session' "$PAGE"; then
