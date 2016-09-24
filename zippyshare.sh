@@ -152,6 +152,13 @@ zippyshare_download() {
             return elts[id];
           }
         };
+        var window = {
+            _taboola:0
+        };
+        var _taboola = {
+            push: function(content) {
+            }
+        };
         $JS
         if (typeof console === 'object' && typeof console.log === 'function') {
           console.log(elts['fimage'].href);
