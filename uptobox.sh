@@ -133,6 +133,15 @@ uptobox_download() {
 
     PAGE=$(uptobox_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL") || return
 
+    # To give priority to premium users, you have to wait x minutes, x seconds
+    if match '>To give priority to premium users, you have to wait' "$PAGE"; then
+        local MINS
+        MINS=$(parse_quiet 'you have to wait[[:space:]]' \
+                '[[:space:]]\([[:digit:]]\+\) minute' <<< "$PAGE") || MINS=60
+        echo $((MINS*60))
+        return $ERR_LINK_TEMP_UNAVAILABLE
+    fi
+
     # The file you were looking for could not be found, sorry for any inconvenience
     if matchi '<span[[:space:]].*File Not Found' "$PAGE"; then
         return $ERR_LINK_DEAD
