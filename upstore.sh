@@ -76,7 +76,7 @@ upstore_switch_lang() {
 upstore_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$2
-    local -r BASE_URL='http://upstore.net'
+    local -r BASE_URL='https://upstore.net'
     local PAGE HASH ERR WAIT JSON
 
     # extract file ID from URL
@@ -91,7 +91,7 @@ upstore_download() {
         ACC=$(upstore_login "$AUTH" "$COOKIE_FILE" "$BASE_URL") || return
     fi
 
-    PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=en' "$BASE_URL/$HASH") || return
+    PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" -b 'lang=en' "$BASE_URL/$HASH") || return
     ERR=$(echo "$PAGE" | parse_tag_quiet 'span class="error"' span) || return
 
     if [ -n "$ERR" ]; then
@@ -117,8 +117,8 @@ upstore_download() {
         return 0
     fi
 
-    PAGE=$(curl -b 'lang=en' -d "hash=$HASH" \
-        -d 'free=Slow download' "$BASE_URL/$HASH") || return
+    PAGE=$(curl -b "$COOKIE_FILE" -d "hash=$HASH" \
+        -d 'free=Slow+download' "$BASE_URL/$HASH") || return
 
     # Error message is inside <span> or <h2> tag
     ERR=$(echo "$PAGE" | parse_quiet 'class="error"' '>\([^<]\+\)</') || return
