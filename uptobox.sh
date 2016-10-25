@@ -152,14 +152,13 @@ uptobox_download() {
     fi
 
     # Send (post) form
-    # FIXME later: fname & file_size_real
+    # FIXME later: fname
     FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
     FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
     FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
     FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
     FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
     FORM_METHOD=$(parse_form_input_by_name_quiet 'method_free' <<< "$FORM_HTML")
-    FORM_SZ=$(parse_form_input_by_name_quiet 'file_size_real' <<< "$FORM_HTML")
 
     # Handle premium downloads
     if [ "$PREMIUM" = '1' ]; then
@@ -181,12 +180,6 @@ uptobox_download() {
             echo "$FILE_URL"
             return 0
         fi
-    fi
-
-    local -r MAX_SIZE=10737418240 # 10GiB
-    if [ "$FORM_SZ" -gt $MAX_SIZE ]; then
-        log_debug "File is bigger than $MAX_SIZE"
-        return $ERR_SIZE_LIMIT_EXCEEDED
     fi
 
     # Check for enforced download limits
