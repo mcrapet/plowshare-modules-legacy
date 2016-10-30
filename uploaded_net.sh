@@ -215,9 +215,10 @@ uploaded_net_extract_file_id() {
 uploaded_net_download() {
     local -r COOKIE_FILE=$1
     local -r BASE_URL='http://uploaded.net'
-    local URL REDIR_URL ACCOUNT PAGE JSON WAIT ERR FILE_ID FILE_NAME FILE_URL CV SESS
+    local URL REDIR_URL ACCOUNT PAGE JSON WAIT ERR FILE_ID FILE_NAME FILE_URL CV SESS TIME
 
     URL=$(uploaded_net_get_canonical_url "$2") || return
+    TIME=$(($(date +%s) - 60))
 
     # Recognize folders
     if match "$BASE_URL/folder/" "$URL"; then
@@ -373,6 +374,7 @@ uploaded_net_download() {
     { read WORD; read CHALLENGE; read ID; } <<< "$WCI"
 
     JSON=$(curl -b "$COOKIE_FILE" --referer "$URL" \
+        -b "ref_auth=ref_auth=$FILE_ID&date=$TIME" \
         -H 'X-Requested-With: XMLHttpRequest' \
         -d "recaptcha_challenge_field=$CHALLENGE" \
         -d "recaptcha_response_field=$WORD" \
