@@ -30,6 +30,7 @@ fboom_me        | download |        |        |      | probe |
 filebin_ca      | download | upload |        |      | probe |
 filecloud       | download | upload |        | list | probe |
 filecore        | download |        |        |      | probe |
+filecrypt_cc    |          |        |        | list |       |
 filedais        | download |        |        |      | probe |
 filefactory     | download | upload |        | list | probe |
 filejoker       | download |        |        |      | probe |
