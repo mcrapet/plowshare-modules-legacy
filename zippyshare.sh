@@ -81,7 +81,7 @@ zippyshare_download() {
     detect_javascript || return
 
     # <meta property="og:title" content="... "
-    FILE_NAME=$(echo "$PAGE" | parse_attr '=.og:title.' content) || return
+    FILE_NAME=$(parse_attr '=.og:title.' content <<< "$PAGE") || return
     test "$FILE_NAME" = 'Private file' && FILE_NAME=''
 
     if match 'var[[:space:]]*submitCaptcha' "$PAGE"; then
