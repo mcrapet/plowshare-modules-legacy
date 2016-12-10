@@ -47,8 +47,8 @@ catshare_login() {
     STATUS=$(parse_cookie_quiet 'session_id' < "$COOKIE_FILE")
     [ -z "$STATUS" ] && return $ERR_LOGIN_FAILED
 
-    NAME=$(parse_quiet 'Zalogowano' 'Zalogowano \(.\+\)</a>' <<< "$PAGE")
-    TYPE=$(parse 'Konto:' '\(Darmowe\|Premium\)' 1 <<< "$PAGE") || return
+    NAME=$(parse_quiet '"/account"' 'i>\([^<]*\)</' 1 <<< "$PAGE")
+    TYPE=$(parse '"/account"'  '>\([^<]*\)</' 5 <<< "$PAGE") || return
 
     if [ "$TYPE" = 'Darmowe' ]; then
         TYPE='free'
