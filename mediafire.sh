@@ -234,6 +234,9 @@ mediafire_download() {
         /download/*)
             URL="$BASE_URL$URL"
             ;;
+        /file/$FILE_ID/*)
+            URL="$BASE_URL$URL"
+            ;;
         http://*)
             log_debug 'Direct download'
             echo "$URL"
