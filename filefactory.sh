@@ -1,5 +1,5 @@
 # Plowshare filefactory.com module
-# Copyright (c) 2013 Plowshare team
+# Copyright (c) 2013-2016 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -330,16 +330,23 @@ filefactory_probe() {
 
     LOCATION=$(grep_http_header_location_quiet <<< "$PAGE")
 
-    if match '/error.php?code=251' "$LOCATION" || \
-        match '/error.php?code=254' "$LOCATION"; then
-        return $ERR_LINK_DEAD
+    REQ_OUT=c
 
-    elif match '/error.php?code=' "$LOCATION"; then
+    if match '/error.php?code=' "$LOCATION"; then
+        local CODE=${LOCATION:16}
+
+        if [ "$CODE" = '251' ]; then
+            return $ERR_LINK_DEAD
+        elif [ "$CODE" = '254' ]; then
+            return $ERR_LINK_DEAD
+        elif [ "$CODE" = '258' ]; then
+            echo $REQ_OUT
+            return $ERR_LINK_NEED_PERMISSIONS
+        fi
+
         log_error "Remote error code: '${LOCATION:16}'"
         return $ERR_FATAL
     fi
-
-    REQ_OUT=c
 
     # All data is hidden for password protected files
     if match 'Please enter the password' "$PAGE"; then
