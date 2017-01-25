@@ -1,5 +1,4 @@
 # Plowshare filecloud.io module
-
 # Copyright (c) 2013-2014 Plowshare team
 #
 # This file is part of Plowshare.
