@@ -92,6 +92,10 @@ mediafire_extract_id() {
             ID=$(parse . '/download/\([[:alnum:]]\+\)' <<< "$URL") || return
             ;;
 
+        */file/*)
+            ID=$(parse . '/file/\([[:alnum:]]\+\)' <<< "$URL") || return
+            ;;
+
         */folder/*)
             ID=$(parse . '/folder/\([[:alnum:]]\+\)' <<< "$URL") || return
             ;;
