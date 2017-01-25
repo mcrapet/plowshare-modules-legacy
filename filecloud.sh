@@ -130,6 +130,9 @@ filecloud_download() {
 
     else
         PAGE=$(curl -L $AUTH_COOKIE -c "$COOKIE_FILE" "$URL") || return
+        if match 'The file at this URL was either removed or did not exist in the first place' "$PAGE" ; then
+            return $ERR_LINK_DEAD
+        fi
 
         ERROR_CODE=$(parse 'var __error' '__error[[:space:]]*=[[:space:]]*\([^;]\+\)' <<< "$PAGE") || return
 
