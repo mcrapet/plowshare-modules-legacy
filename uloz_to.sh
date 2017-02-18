@@ -54,7 +54,7 @@ uloz_to_download() {
     # Get captcha.
     local DATE CAPTCHA_URL CAPTCHA_IMG
     DATE=$(date +%s) || return
-    JSON=$(curl -e "$URL" -b "$COOKIE_FILE" "$BASE_URL/reloadXapca.php?rnd=$DATE") || return
+    JSON=$(curl -L -e "$URL" -b "$COOKIE_FILE" "$BASE_URL/reloadXapca.php?rnd=$DATE") || return
     CAPTCHA_URL=$(parse_json 'image' <<< "$JSON") || return
     CAPTCHA_URL="http:$CAPTCHA_URL"
     CAPTCHA_IMG=$(create_tempfile '.gif') || return
@@ -67,7 +67,7 @@ uloz_to_download() {
 
     local FORM_LINE FORM_TIMESTAMP FORM_SALT FORM_HASH FORM_DO
     local FORM_TOKEN FORM_TS FORM_CID FORM_ADI FORM_SIGN_A FORM_SIGN
-    FORM_LINE=$(parse 'id="frm-downloadDialog-freeDownloadForm-freeDownload"' \
+    FORM_LINE=$(parse 'id="frm-download-freeDownloadTab-freeDownloadForm-freeDownload"' \
         '^\(.*\)$' 2 <<< "$PAGE") || return
     FORM_TIMESTAMP=$(parse_json 'timestamp' <<< "$JSON") || return
     FORM_SALT=$(parse_json 'salt' <<< "$JSON") || return
