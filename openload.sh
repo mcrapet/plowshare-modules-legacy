@@ -75,40 +75,70 @@ openload_login() {
 # stdout: real file download link
 openload_download() {
     local -r URL=$2
-    local PAGE WAIT FILE_URL JS
+    local API_URL='https://api.openload.co/1/file/'
+    local PAGE WAIT
+    local FILE_ID FILE_NAME FILE_URL
+    local DL_TICKET CAPTCHA_URL
 
     PAGE=$(curl -L "$URL") || return
+    FILE_ID=$(parse 'fid=' '"\(.*\)"' <<< "$PAGE") || return
+    log_debug "FILE_ID: $FILE_ID"
 
-    if match "<p class=\"lead\">We can't find the file you are looking for" "$PAGE"; then
-        return $ERR_LINK_DEAD
-    fi
+    # Request a download ticket
+    JSON=$(curl "$API_URL/dlticket?file=$FILE_ID") || return
 
-    detect_javascript || return
+    # {"status":200,"msg":"OK","result":{"ticket": ...}}
+    openload_status "$JSON" || return
 
-    WAIT=$(parse_tag 'id="secondsleft"' span <<< "$PAGE") || return
+    # Grab the download ticket
+    DL_TICKET=$(parse_json 'ticket' <<< "$JSON") || return
+    log_debug "DL_TICKET: $DL_TICKET"
+
+    # Waiting
+    WAIT=$(parse_json 'wait_time' <<< "$JSON") || return
     wait $(($WAIT)) seconds || return
 
-    # Obfuscated code with utf-8 variable names
-    JS=$(parse 'id="realdl"' '^\(.*\)$' 1 <<< "$PAGE") || return
-    JS=${JS#<script type=\"text/javascript\">}
-    JS=${JS%</script>}
+    # Get captcha
+    CAPTCHA_URL=$(parse_json 'captcha_url' <<< "$JSON")
+    log_debug "CAPTCHA_URL: $CAPTCHA_URL"
+    if [[ "$CAPTCHA_URL" != 'false' ]] ; then
+        CAPTCHA_IMG=$(create_tempfile '.gif') || return
+        curl -o "$CAPTCHA_IMG" "$CAPTCHA_URL" || return
 
-    FILE_URL=$(echo "
-attr = function(name,value) {
-  if (typeof console === 'object' && typeof console.log === 'function') {
-    console.log(value);
-  } else {
-    print(value);
-  }
-}
-\$ = function(obj) {
-  return {
-    attr: attr
-  };
-}
-$JS" | javascript) || return
+        local WI WORD ID
+        WI=$(captcha_process "$CAPTCHA_IMG") || return
+        { read WORD; read ID; } <<< "$WI"
+        rm -f "$CAPTCHA_IMG"
+
+        # Request download link
+        JSON=$(curl "$API_URL/dl?file=$FILE_ID&ticket=$DL_TICKET&captcha_response=$WORD") || return
+
+        # {"status":200,"msg":"OK","result":{"url": ...}}
+        if ! openload_status "$JSON" ; then
+            captcha_nack $ID
+            log_error 'Wrong captcha'
+            return $ERR_CAPTCHA
+        fi
+
+        captcha_ack $ID
+    else
+        # Request download link
+        JSON=$(curl "$API_URL/dl?file=$FILE_ID&ticket=$DL_TICKET") || return
+
+        # {"status":200,"msg":"OK","result":{"url": ...}}
+        openload_status "$JSON" || return
+    fi
+
+    # Get FILE_URL
+    FILE_URL=$(parse_json 'url' <<< "$JSON") || return
+    log_debug "FILE_URL: $FILE_URL"
+
+    # Get FILE_NAME
+    FILE_NAME=$(parse_json 'name' <<< "$JSON") || return
+    log_debug "FILE_NAME: $FILE_NAME"
 
     echo "$FILE_URL"
+    echo "$FILE_NAME"
 }
 
 # Static function. Check if specified folder name is valid.
