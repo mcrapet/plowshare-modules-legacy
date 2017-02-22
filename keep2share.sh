@@ -375,7 +375,7 @@ keep2share_download() {
 
     # direct download without captcha
     elif match 'btn-success.*Download' "$PAGE"; then
-        PRE_URL=$(parse 'window.location.href' "'\([^']\+\)'" <<< "$PAGE") || return
+        PRE_URL=$(parse_attr 'btn-success.*Download' href <<< "$PAGE") || return
     else
         log_error 'Unexpected content. Site updated?'
         return $ERR_FATAL
