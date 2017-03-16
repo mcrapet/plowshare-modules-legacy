@@ -205,6 +205,8 @@ uptobox_download() {
         elif match 'Expired download session' "$PAGE"; then
             log_error 'Remote error: expired session'
             return $ERR_LINK_TEMP_UNAVAILABLE
+        elif match '>premium member<' "$PAGE"; then
+            return $ERR_LINK_NEED_PERMISSIONS
         fi
     fi
 
