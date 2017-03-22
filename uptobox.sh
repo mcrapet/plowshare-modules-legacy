@@ -285,14 +285,15 @@ uptobox_upload() {
     PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
 
     FORM_HTML=$(grep_form_by_id "$PAGE" 'fileupload') || return
-    FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
+    FORM_ACTION=$(parse_form_action <<< "$FORM_HTML") || return
     FORM_SESS=$(parse_form_input_by_name_quiet 'sess_id' <<< "$PAGE")
+    log_debug $FORM_ACTION
 
     log_debug "debug html '$FORM_HTML'"
     JSON=$(curl_with_log \
         -F "sess_id=$FORM_SESS" \
         -F "files[]=@$FILE;type=application/octet-stream;filename=$DESTFILE" \
-        "${FORM_ACTION%%\?*}" | break_html_lines) || return
+        "${FORM_ACTION}" | break_html_lines) || return
 
     echo $(echo $JSON | parse_json url) || return
     echo $(echo $JSON | parse_json deleteUrl) || return
