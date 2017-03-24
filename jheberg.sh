@@ -41,7 +41,7 @@ jheberg_upload() {
 
     # Note: official API does not allow hoster selection (yet).
 
-    PAGE=$(curl "$API_URL/get/server/") || return
+    PAGE=$(curl -L "$API_URL/get/server/") || return
     UPLOAD_URL="$(echo "$PAGE" | parse_json 'url')api/upload/" || return
     log_debug "Upload URL: $UPLOAD_URL"
 
@@ -77,7 +77,7 @@ jheberg_list() {
     local -r BASE_URL='http://www.jheberg.net'
     local JSON NAMES DL_ID URL2 HOSTER
 
-    JSON=$(curl --get --data "id=$(uri_encode_strict <<< "$URL")" \
+    JSON=$(curl -L --get --data "id=$(uri_encode_strict <<< "$URL")" \
         "$BASE_URL/api/verify/file/") || return
 
     if [ -z "$JSON" ] || match '^<!DOCTYPE[[:space:]]' "$JSON"; then
@@ -101,7 +101,7 @@ jheberg_list() {
     while read HOSTER; do
         URL2="${URL/\/mirrors\///redirect/}$HOSTER/"
 
-        JSON=$(curl --referer "$URL2" \
+        JSON=$(curl -L --referer "$URL2" \
             -H 'X-Requested-With: XMLHttpRequest' \
             -d "slug=$DL_ID" -d "hoster=$HOSTER"    \
             "$BASE_URL/get/link/") || return
@@ -124,7 +124,7 @@ jheberg_probe() {
     local -r REQ_IN=$3
     local JSON REQ_OUT FILE_SIZE
 
-    JSON=$(curl --get --data "id=$(uri_encode_strict <<< "$URL")" \
+    JSON=$(curl -L --get --data "id=$(uri_encode_strict <<< "$URL")" \
         "http://www.jheberg.net/api/verify/file/") || return
 
     if [ -z "$JSON" ] || match '^<!DOCTYPE[[:space:]]' "$JSON"; then
