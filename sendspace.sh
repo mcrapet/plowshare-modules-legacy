@@ -161,7 +161,7 @@ sendspace_upload() {
     fi
 
     # Parse and output download and delete link
-    echo "$PAGE" | parse_attr 'share link' 'href' || return
+    echo "$PAGE" | parse_attr 'share link.>' 'href' || return
     echo "$PAGE" | parse_attr '/delete/' 'href' || return
 }
 
