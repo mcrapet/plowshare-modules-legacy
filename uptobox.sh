@@ -284,46 +284,21 @@ uptobox_upload() {
 
     PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
 
-    # "anon", "reg", "prem"
-    USER_TYPE=$(parse 'var utype' "='\([^']*\)" <<< "$PAGE") || return
-    log_debug "User type: '$USER_TYPE'"
-
-    FORM_HTML=$(grep_form_by_name "$PAGE" 'file') || return
-    FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
-    FORM_UTYPE=$(parse_form_input_by_name 'upload_type' <<< "$PAGE") || return
-    FORM_TMP_SRV=$(parse_form_input_by_name 'srv_tmp_url' <<< "$PAGE") || return
-    FORM_BUTTON=$(parse_form_input_by_name 'submit_btn' <<< "$PAGE") || return
+    FORM_HTML=$(grep_form_by_id "$PAGE" 'fileupload') || return
+    FORM_ACTION=$(parse_form_action <<< "$FORM_HTML") || return
     FORM_SESS=$(parse_form_input_by_name_quiet 'sess_id' <<< "$PAGE")
+    log_debug $FORM_ACTION
 
-    # xupload.js
-    UPLOAD_ID=$(random dec 12) || return
-    PAGE=$(curl_with_log \
-        -F "upload_type=$FORM_UTYPE" \
+    log_debug "debug html '$FORM_HTML'"
+    JSON=$(curl_with_log \
         -F "sess_id=$FORM_SESS" \
-        -F "srv_tmp_url=$FORM_TMP_SRV" \
-        -F "file_1=@$FILE;type=application/octet-stream;filename=$DESTFILE" \
-        -F 'tos=1' \
-        -F "submit_btn=$FORM_BUTTON" \
-        "${FORM_ACTION%%\?*}?X-Progress-ID=${UPLOAD_ID}&upload_id=${UPLOAD_ID}&js_on=1&utype=${USER_TYPE}&upload_type=${FORM_UTYPE}" | break_html_lines) || return
+        -F "files[]=@$FILE;type=application/octet-stream;filename=$DESTFILE" \
+        "${FORM_ACTION}" | break_html_lines) || return
 
-
-    FORM_ACTION=$(parse_form_action <<< "$PAGE") || return
-    FORM_FN=$(parse_tag "name='fn'" textarea <<< "$PAGE") || return
-    FORM_ST=$(parse_tag "name='st'" textarea <<< "$PAGE") || return
-    FORM_OP=$(parse_tag "name='op'" textarea <<< "$PAGE") || return
-
-    if [ "$FORM_ST" = 'OK' ]; then
-        PAGE=$(curl -b 'lang=english' -d "fn=$FORM_FN" -d "st=$FORM_ST" \
-            -d "op=$FORM_OP" "$FORM_ACTION") || return
-
-        # Parse and output download + delete link
-        parse_attr 'Download File' 'value' <<< "$PAGE" || return
-        parse_attr 'killcode' 'value' <<< "$PAGE" || return
-        return 0
-    fi
-
-    log_error "Unexpected status: $FORM_ST"
-    return $ERR_FATAL
+    echo $(echo $JSON | parse_json url) || return
+    echo $(echo $JSON | parse_json deleteUrl) || return
+    
+    return 0
 }
 
 # Probe a download URL
