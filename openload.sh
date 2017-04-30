@@ -80,8 +80,14 @@ openload_download() {
     local FILE_ID FILE_NAME FILE_URL
     local DL_TICKET CAPTCHA_URL
 
-    PAGE=$(curl -L "$URL") || return
-    FILE_ID=$(parse 'fid=' '"\(.*\)"' <<< "$PAGE") || return
+    # Take FILE_ID from URL if we use embed link
+    if match 'embed' "$URL" ; then
+      log_debug 'Grab FILE_ID from URL because we use embed link that must finish with /'
+      FILE_ID=$(parse '.' 'embed/\(.*\)/' <<< "$URL") || return
+    else
+      PAGE=$(curl -L "$URL") || return
+      FILE_ID=$(parse 'fid=' '"\(.*\)"' <<< "$PAGE") || return
+    fi
     log_debug "FILE_ID: $FILE_ID"
 
     # Request a download ticket
