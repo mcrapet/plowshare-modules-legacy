@@ -189,15 +189,12 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         return 0
     fi
 
+    # Access to download
     PAGE=$(curl --include -b "$COOKIE_FILE" -b 'LG=en' -d '' \
         --referer "$URL" "$URL") || return
 
-    # To help you discover our services, we will not limit your download speed.
-    if match 'discover\(.*\) our services\(.*\) your download speed' "$PAGE"; then
-        FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
-    else
-        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
-    fi
+    # Click here to download the file
+    FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
 
     if [ -z "$FILE_URL" ]; then
         echo 300
