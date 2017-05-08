@@ -161,9 +161,9 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         echo 300
         return $ERR_LINK_TEMP_UNAVAILABLE
 
-    # Warning ! Without Subscription, you must wait between downloads.<br/>You must wait 9 minutes</div>
-    elif match 'Warning ! Without Subscription,' "$PAGE"; then
-        WAIT=$(parse 'Warning ! Without' 'You must wait \([[:digit:]]\+\) minute' 1 <<< "$PAGE") || WAIT=1
+    # <span>Warning !</span><br/>Without subscription, you must wait between downloads.<br/>You must wait 9 minutes</div>
+    elif match 'you must wait between downloads.' "$PAGE"; then
+        WAIT=$(parse 'Without subscription,' 'You must wait \([[:digit:]]\+\) minute' 1 <<< "$PAGE") || WAIT=1
         echo $((WAIT * 60))
         return $ERR_LINK_TEMP_UNAVAILABLE
 
@@ -189,15 +189,12 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         return 0
     fi
 
+    # Access to download
     PAGE=$(curl --include -b "$COOKIE_FILE" -b 'LG=en' -d '' \
         --referer "$URL" "$URL") || return
 
-    # To help you discover our services, we will not limit your download speed.
-    if match 'discover\(.*\) our services\(.*\) your download speed' "$PAGE"; then
-        FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
-    else
-        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
-    fi
+    # Click here to download the file
+    FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
 
     if [ -z "$FILE_URL" ]; then
         echo 300
