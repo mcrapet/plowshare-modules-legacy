@@ -71,25 +71,11 @@ uptobox_cloudflare() {
     local -r BASE_URL=$3
     local PAGE=$1
 
-    # check for captcha
     # <title>Attention Required! | CloudFlare</title>
-    if [[ $(parse_tag 'title' <<< "$PAGE") = *CloudFlare* ]]; then
-        local -r PUBKEY='6LeT6gcAAAAAAAZ_yDmTMqPH57dJQZdQcu6VFqog'
-        local WORD CHALLENGE ID RESP FORM FORM_ACTION FORM_ID
-        log_debug 'Cloudflare captcha found'
-
-        FORM=$(grep_form_by_id "$PAGE" 'challenge-form') || return
-        FORM_ACTION=$(parse_form_action "$FORM") || return
-        FORM_ID=$(parse_form_input_by_id 'id' <<< "$FORM") || return
-
-        RESP=$(recaptcha_process $PUBKEY) || return
-        { read WORD; read CHALLENGE; read ID; } <<< "$RESP"
-
-        PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
-            -d "recaptcha_challenge_field=$CHALLENGE" \
-            -d "recaptcha_response_field=$WORD" \
-            -d 'message=' -d "id=$FORM_ID" \
-            "${BASE_URL}/${FORM_ACTION}") || return
+    if matchi 'Cloudflare' "$(parse_tag 'title' <<< "$PAGE")"; then
+        log_error 'Cloudflare captcha request, plowshare does not handle new google captchas'
+        # FIXME
+        return $ERR_FATAL
     fi
 
     echo "$PAGE"
@@ -295,10 +281,8 @@ uptobox_upload() {
         -F "files[]=@$FILE;type=application/octet-stream;filename=$DESTFILE" \
         "${FORM_ACTION}" | break_html_lines) || return
 
-    echo $(echo $JSON | parse_json url) || return
-    echo $(echo $JSON | parse_json deleteUrl) || return
-    
-    return 0
+    echo $JSON | parse_json url || return
+    echo $JSON | parse_json deleteUrl || return
 }
 
 # Probe a download URL
