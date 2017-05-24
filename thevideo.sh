@@ -97,11 +97,6 @@ thevideo_upload() {
     FORM_SRV_TMP=$(parse_form_input_by_name 'srv_tmp_url' <<< "$FORM_HTML") || return
     FORM_SRV_ID=$(parse_form_input_by_name 'srv_id' <<< "$FORM_HTML") || return
     FORM_DSK_ID=$(parse_form_input_by_name 'disk_id' <<< "$FORM_HTML") || return
-    #FORM_BUTTON=$(parse_form_input_by_name 'submit_btn' <<< "$FORM_HTML") || return
-
-    # "reg"
-    #USER_TYPE=$(parse 'utype' "='\([^']*\)" <<< "$PAGE") || return
-    log_debug "User type: '$USER_TYPE'"
 
     TAGS_STR=''
     if [ "${#TAGS[@]}" -gt 0 ]; then
