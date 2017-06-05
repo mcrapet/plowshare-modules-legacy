@@ -229,7 +229,7 @@ filejoker_download() {
     # Check for and handle CAPTCHA (if any).
     local PUBKEY RESP WORD CHALL ID CAPTCHA_DATA
 
-    if match 'recaptcha_image' "$FORM_HTML"; then
+    if match 'recaptcha_challenge_field' "$FORM_HTML"; then
         log_debug 'reCaptcha found'
         PUBKEY='6LetAu0SAAAAACCJkqZLvjNS4L7eSL8fGxr-Jzy2'
 
