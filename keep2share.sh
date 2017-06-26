@@ -116,7 +116,7 @@ keep2share_download() {
     local -r COOKIE_FILE=$1
     local -r API_URL='http://keep2share.cc/api/v1/'
     local URL BASE_URL ACCOUNT TOKEN FILE_NAME FILE_ID FILE_STATUS PRE_URL
-    local AT JSON PAGE FORM_HTML FORM_ID FORM_ACTION WAIT
+    local AT JSON PAGE FORM_HTML FORM_ID FORM_ACTION WAIT FORCED_DELAY
 
     # get canonical URL and BASE_URL for this file
     URL=$(curl -I "$2" | grep_http_header_location_quiet) || return
@@ -252,12 +252,16 @@ keep2share_download() {
 
     PAGE=$(curl -c "$COOKIE_FILE" "$URL") || return
 
+    # parse wait time
+    WAIT=$(parse 'id=\"free-download-wait-timer\"' \
+        '>[[:space:]]*\([[:digit:]]\+\)<' <<< "$PAGE") || return
+
     # File not found or deleted
     if match 'File not found or deleted\|This file is no longer available' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
-    FILE_NAME=$(parse_tag '^[[:space:]]*File:' 'span' <<< "$PAGE" | \
+    FILE_NAME=$(parse 'available for <em>PREMIUM<\/em> download' '<strong>\(.\+\) \?<\/strong>' 'span' <<< "$PAGE" | \
         html_to_utf8) || return
     readonly FILE_NAME
 
@@ -282,15 +286,15 @@ keep2share_download() {
         "$BASE_URL$FORM_ACTION") || return
 
     # check for forced delay
-    WAIT=$(parse_quiet 'Please wait .* to download this file' \
+    FORCED_DELAY=$(parse_quiet 'Please wait .* to download this file' \
         'wait \([[:digit:]:]\+\) to download' <<< "$PAGE")
 
-    if [ -n "$WAIT" ]; then
+    if [ -n "$FORCED_DELAY" ]; then
         local HOUR MIN SEC
 
-        HOUR=${WAIT%%:*}
-        SEC=${WAIT##*:}
-        MIN=${WAIT#*:}; MIN=${MIN%:*}
+        HOUR=${FORCED_DELAY%%:*}
+        SEC=${FORCED_DELAY##*:}
+        MIN=${FORCED_DELAY#*:}; MIN=${MIN%:*}
         log_error 'Forced delay between downloads.'
         # Note: Get rid of leading zeros so numbers will not be considered octal
         echo $(( (( ${HOUR#0} * 60 ) + ${MIN#0} ) * 60 + ${SEC#0} ))
@@ -360,10 +364,6 @@ keep2share_download() {
         log_debug 'Correct captcha'
         captcha_ack "$ID"
 
-        # parse wait time
-        WAIT=$(parse 'id="download-wait-timer"' \
-            '^[[:space:]]*\([[:digit:]]\+\)' 1 <<< "$PAGE") || return
-
         if [ -n "$WAIT" ]; then
             wait $(( WAIT + 1 )) || return
         fi
@@ -371,7 +371,7 @@ keep2share_download() {
         PAGE=$(curl -b "$COOKIE_FILE" -d "uniqueId=$FORM_ID" \
             -d 'free=1' "$BASE_URL$FORM_ACTION") || return
 
-        PRE_URL=$(parse_attr 'id="temp-link"' 'href' <<< "$PAGE") || return
+        PRE_URL=$(parse_attr 'link-to-file' 'href' <<< "$PAGE") || return
 
     # direct download without captcha
     elif match 'btn-success.*Download' "$PAGE"; then
@@ -534,12 +534,12 @@ keep2share_probe() {
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        parse_tag '^[[:space:]]*File:' 'span' <<< "$PAGE" | html_to_utf8 && \
+        parse 'available for <em>PREMIUM<\/em> download' '<strong>\(.\+\) \?<\/strong>' 'span' <<< "$PAGE" | html_to_utf8 && \
             REQ_OUT="${REQ_OUT}f"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(parse_tag 'Size:' 'div' <<< "$PAGE") && \
+        FILE_SIZE=$(parse '<em>' '<em>\([[:digit:]\.]\+ .\+\)</em>' <<< "$PAGE") && \
             translate_size "${FILE_SIZE#Size: }" && REQ_OUT="${REQ_OUT}s"
     fi
 
