@@ -84,7 +84,7 @@ depositfiles_login() {
 depositfiles_download() {
     local COOKIEFILE=$1
     local URL=$2
-    local -r BASE_URL='http://dfiles.eu'
+    local -r BASE_URL='https://dfiles.eu'
     local START DLID WAITTIME DATA FID SLEEP FILE_URL
 
     if [ -n "$AUTH" ]; then
