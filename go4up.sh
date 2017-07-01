@@ -90,10 +90,10 @@ go4up_upload() {
     local COOKIE_FILE=$1
     local FILE=$2
     local DESTFILE=$3
-    local BASE_URL='http://go4up.com'
+    local BASE_URL='https://go4up.com'
     local UPLOAD_URL PAGE ERR USER PASSWORD
 
-    # Upload by using public API: http://go4up.com/misc/apidoc
+    # Upload by using public API: https://go4up.com/misc/apidoc
     if [ -n "$API" ]; then
         log_debug 'using public API'
 
