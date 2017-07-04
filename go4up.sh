@@ -90,10 +90,10 @@ go4up_upload() {
     local COOKIE_FILE=$1
     local FILE=$2
     local DESTFILE=$3
-    local BASE_URL='http://go4up.com'
+    local BASE_URL='https://go4up.com'
     local UPLOAD_URL PAGE ERR USER PASSWORD
 
-    # Upload by using public API: http://go4up.com/misc/apidoc
+    # Upload by using public API: https://go4up.com/misc/apidoc
     if [ -n "$API" ]; then
         log_debug 'using public API'
 
@@ -283,7 +283,7 @@ go4up_upload() {
 # stdout: list of links
 go4up_list() {
     local URL=$1
-    local BASE_URL='http://go4up.com'
+    local BASE_URL='https://go4up.com'
     local PAGE INFO_URL LINKS FILE_NAME JSON
 
     go4up_switch_lang "$COOKIE_FILE" "$BASE_URL"
@@ -329,14 +329,14 @@ go4up_list() {
 go4up_delete() {
     local COOKIE_FILE=$1
     local URL=$2
-    local BASE_URL='http://go4up.com'
+    local BASE_URL='https://go4up.com'
     local PAGE FILE_ID FILE_NAME
 
     test "$AUTH_FREE" || return $ERR_LINK_NEED_PERMISSIONS
 
     # Parse URL
-    # http://go4up.com/link.php?id=1Ddupi2qxbwl
-    # http://go4up.com/dl/1Ddupi2qxbwl
+    # https://go4up.com/link.php?id=1Ddupi2qxbwl
+    # https://go4up.com/dl/1Ddupi2qxbwl
     FILE_ID=$(echo "$URL" | parse . '[=/]\([[:alnum:]]\+\)$') || return
     log_debug "File ID: $FILE_ID"
 
