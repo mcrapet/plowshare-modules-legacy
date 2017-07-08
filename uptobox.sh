@@ -1,5 +1,5 @@
 # Plowshare uptobox.com module
-# Copyright (c) 2012-2016 Plowshare team
+# Copyright (c) 2012-2017 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -125,6 +125,14 @@ uptobox_download() {
         MINS=$(parse_quiet 'you have to wait[[:space:]]' \
                 '[[:space:]]\([[:digit:]]\+\) minute' <<< "$PAGE") || MINS=60
         echo $((MINS*60))
+        return $ERR_LINK_TEMP_UNAVAILABLE
+    # You need a PREMIUM account to download new files immediatly without waiting
+    elif match '>You need a PREMIUM account to download' "$PAGE"; then
+        MINS=$(parse_quiet 'you can wait[[:space:]]' \
+                '[[:space:]]\([[:digit:]]\+\) minute' <<< "$PAGE") || MINS=60
+        SECS=$(parse_quiet 'you can wait[[:space:]]' \
+                '[[:space:]]\([[:digit:]]\+\) second' <<< "$PAGE") || SECS=1
+        echo $((MINS * 60 + SECS))
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
 
