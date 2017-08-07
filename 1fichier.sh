@@ -193,8 +193,13 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     PAGE=$(curl --include -b "$COOKIE_FILE" -b 'LG=en' -d '' \
         --referer "$URL" "$URL") || return
 
+    # Authenticated download with forced menu
+    FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
+
     # Click here to download the file
-    FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
+    if [ -z "$FILE_URL" ] ; then
+        FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
+    fi
 
     if [ -z "$FILE_URL" ]; then
         echo 300
