@@ -119,10 +119,10 @@ uptobox_download() {
 
     PAGE=$(uptobox_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL") || return
 
-    # To give priority to premium users, you have to wait x minutes, x seconds
-    if match '>To give priority to premium users, you have to wait' "$PAGE"; then
+    # You need a PREMIUM account to download new files immediatly without waiting, or you can wait x hour, x minutes, x seconds
+    if match '>You need a PREMIUM account to download new files immediatly without waiting' "$PAGE"; then
         local MINS
-        MINS=$(parse_quiet 'you have to wait[[:space:]]' \
+        MINS=$(parse_quiet 'you can wait[[:space:]]' \
                 '[[:space:]]\([[:digit:]]\+\) minute' <<< "$PAGE") || MINS=60
         echo $((MINS*60))
         return $ERR_LINK_TEMP_UNAVAILABLE
