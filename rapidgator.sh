@@ -661,6 +661,8 @@ rapidgator_upload() {
             -F "file=@$FILE;type=application/octet-stream;filename=$DEST_FILE" \
             "$UP_URL$SESSION_ID&folder_id=$FOLDER_ID") || return
 
+        wait 5 || return
+
         # Get download URL
         JSON=$(curl --referer "$URL" -H "Origin: $BASE_URL" \
             -H 'Accept: application/json, text/javascript, */*; q=0.01' \
