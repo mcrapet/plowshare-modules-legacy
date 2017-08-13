@@ -661,8 +661,7 @@ rapidgator_upload() {
             -F "file=@$FILE;type=application/octet-stream;filename=$DEST_FILE" \
             "$UP_URL$SESSION_ID&folder_id=$FOLDER_ID") || return
 
-        sleep 10
-        log_debug 'Wait 10 seconds bofore getting the urls'
+        wait 5
 
         # Get download URL
         JSON=$(curl --referer "$URL" -H "Origin: $BASE_URL" \
