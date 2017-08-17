@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_RAPIDGATOR_REGEXP_URL='http://\(www\.\)\?rapidgator\.net/'
+MODULE_RAPIDGATOR_REGEXP_URL='https://\(www\.\)\?rapidgator\.net/'
 
 MODULE_RAPIDGATOR_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=EMAIL:PASSWORD,User account"
@@ -45,7 +45,7 @@ MODULE_RAPIDGATOR_PROBE_OPTIONS=""
 rapidgator_login() {
     local -r AUTH=$1
     local -r COOKIE_FILE=$2
-    local -r BASE_URL=${3/#http/https}
+    local -r BASE_URL=${3/#https/https}
     local LOGIN_DATA HTML EMAIL TYPE STATUS
 
     LOGIN_DATA='LoginForm[email]=$USER&LoginForm[password]=$PASSWORD&LoginForm[rememberMe]=1'
@@ -472,7 +472,7 @@ rapidgator_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DEST_FILE=$3
-    local -r BASE_URL='http://rapidgator.net'
+    local -r BASE_URL='https://rapidgator.net'
     local HTML URL LINK DEL_LINK
 
     # Sanity checks
@@ -641,8 +641,8 @@ rapidgator_upload() {
         fi
 
         # Scrape URLs from site (upload server changes each time)
-        UP_URL=$(parse 'var form_url' '"\(.\+\)";' <<< "$HTML") || return
-        PROG_URL=$(parse 'var progress_url_srv' '"\(.\+\)";' <<< "$HTML") || return
+        UP_URL=$(parse 'var form_url' '"\(http:.\+\)".;' <<< "$HTML") || return
+        PROG_URL=$(parse 'var progress_url_srv' '"\(http:.\+\)".;' <<< "$HTML") || return
 
         log_debug "Upload URL: '$UP_URL'"
         log_debug "Progress URL: '$PROG_URL'"
