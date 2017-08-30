@@ -641,8 +641,8 @@ rapidgator_upload() {
         fi
 
         # Scrape URLs from site (upload server changes each time)
-        UP_URL=$(parse 'var form_url' '"\(.\+\)";' <<< "$HTML") || return
-        PROG_URL=$(parse 'var progress_url_srv' '"\(.\+\)";' <<< "$HTML") || return
+        UP_URL=$(parse 'var form_url' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
+        PROG_URL=$(parse 'var progress_url_srv' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
 
         log_debug "Upload URL: '$UP_URL'"
         log_debug "Progress URL: '$PROG_URL'"
