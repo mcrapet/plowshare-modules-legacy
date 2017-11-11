@@ -34,7 +34,8 @@ MODULE_RAPIDGATOR_UPLOAD_REMOTE_SUPPORT=yes
 MODULE_RAPIDGATOR_LIST_OPTIONS=""
 MODULE_RAPIDGATOR_LIST_HAS_SUBFOLDERS=no
 
-MODULE_RAPIDGATOR_DELETE_OPTIONS=""
+MODULE_RAPIDGATOR_DELETE_OPTIONS="
+AUTH,a,auth,a=EMAIL:PASSWORD,User account"
 MODULE_RAPIDGATOR_PROBE_OPTIONS=""
 
 # Static function. Proceed with login (free)
@@ -641,8 +642,8 @@ rapidgator_upload() {
         fi
 
         # Scrape URLs from site (upload server changes each time)
-        UP_URL=$(parse 'var form_url' '"\(.\+\)";' <<< "$HTML") || return
-        PROG_URL=$(parse 'var progress_url_srv' '"\(.\+\)";' <<< "$HTML") || return
+        UP_URL=$(parse 'var form_url' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
+        PROG_URL=$(parse 'var progress_url_srv' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
 
         log_debug "Upload URL: '$UP_URL'"
         log_debug "Progress URL: '$PROG_URL'"
@@ -691,6 +692,12 @@ rapidgator_delete() {
     local -r URL=${2/#http:/https:}
     local -r BASE_URL='https://rapidgator.net'
     local HTML ID UP_ID
+
+    # Sanity checks
+    [ -n "$AUTH" ] || return $ERR_LINK_NEED_PERMISSIONS
+
+    # Login (don't care for account type)
+    rapidgator_login "$AUTH" "$COOKIE_FILE" "$BASE_URL" > /dev/null || return
 
     ID=$(parse . '/id/\([^/]\+\)/up_id/' <<< "$URL") || return
     UP_ID=$(parse . '/up_id/\(.\+\)$' <<< "$URL") || return
