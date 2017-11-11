@@ -136,15 +136,15 @@ multiup_org_upload() {
 # $2: recurse subfolders (ignored here)
 # stdout: list of links
 multiup_org_list() {
-    local -r URL=$(replace '/download/' '/en/mirror/' <<<"$1")
-    local -r BASE_URL='http://www.multiup.org'
+    local -r URL=$(replace '.org' '.eu' <<<$(replace '/download/' '/en/mirror/' <<<"$1"))
+    local -r BASE_URL='https://www.multiup.eu'
     local COOKIE_FILE PAGE LINK LINKS NAMES
 
     # Set-Cookie: PHPSESSID=...; yooclick=true; ...
     COOKIE_FILE=$(create_tempfile) || return
     PAGE=$(curl -L -c "$COOKIE_FILE" "$URL") || return
 
-    LINK=$(parse_quiet 'class=.btn.' 'href=.\([^"]*\)' 1 <<< "$PAGE")
+    LINK=$(parse_quiet 'class=.btn.' 'href=.\([^"]*\)' <<< "$PAGE")
     if [ -n "$LINK" ]; then
         LINK=$(replace '/fr/' '/en/' <<< "$LINK")
         PAGE=$(curl -b "$COOKIE_FILE" --referer "$URL" "$BASE_URL$LINK") || return
@@ -152,7 +152,7 @@ multiup_org_list() {
 
     rm -f "$COOKIE_FILE"
 
-    LINKS=$(parse_all_quiet 'dateLastChecked=' 'href=.\([^"]*\)' 3 <<< "$PAGE")
+    LINKS=$(parse_all_quiet 'dateLastChecked=' 'href=.\([^"]*\)' <<< "$PAGE")
     if [ -z "$LINKS" ]; then
         # <h3>File currently uploading ...</h3>
         if match '>File currently uploading \.\.\.<' "$PAGE"; then
@@ -165,7 +165,7 @@ multiup_org_list() {
         fi
     fi
 
-    NAMES=$(parse_all_quiet 'dateLastChecked=' 'nameHost=.\([^"]*\)' -2 <<< "$PAGE")
+    NAMES=$(parse_all_quiet 'dateLastChecked=' 'nameHost=.\([^"]*\)' <<< "$PAGE")
 
     list_submit "$LINKS" "$NAMES" || return
 }
