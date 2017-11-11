@@ -416,7 +416,7 @@ rapidgator_download() {
 
     # Solve each type of captcha separately
     if [ -n "$FORM" ]; then
-        if match 'api\.solvemedia' "$FORM"; then
+        if match 'api\(-secure\)\?\.solvemedia' "$FORM"; then
             log_debug 'Solve Media CAPTCHA found'
 
             RESP=$(solvemedia_captcha_process 'oy3wKTaFP368dkJiGUqOVjBR2rOOR7GR') || return
