@@ -99,7 +99,7 @@ uptobox_download() {
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
 
         # Opposite is: 'Upgrade to premium';
-        if match 'Renew premium' "$PAGE"; then
+        if match 'Renew Premium' "$PAGE"; then
             local DIRECT_URL
             PREMIUM=1
             DIRECT_URL=$(curl -I -b "$COOKIE_FILE" "$URL" | grep_http_header_location_quiet)
