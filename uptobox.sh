@@ -287,7 +287,7 @@ uptobox_upload() {
     JSON=$(curl_with_log \
         -F "sess_id=$FORM_SESS" \
         -F "files[]=@$FILE;type=application/octet-stream;filename=$DESTFILE" \
-        "${FORM_ACTION}" | break_html_lines) || return
+        "http:${FORM_ACTION}" | break_html_lines) || return
 
     echo $JSON | parse_json url || return
     echo $JSON | parse_json deleteUrl || return
