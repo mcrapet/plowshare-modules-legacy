@@ -88,7 +88,7 @@ uptobox_cloudflare() {
 uptobox_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$(replace '://www.' '://' <<< "$2")
-    local -r BASE_URL='https://uptobox.com'
+    local -r BASE_URL='http://uptobox.com'
     local PAGE WAIT_TIME CODE PREMIUM CAPTCHA_DATA CAPTCHA_ID
     local FORM_HTML FORM_OP FORM_ID FORM_RAND FORM_METHOD FORM_DD FORM_SZ FORM_WAITINGTOKEN
 
@@ -143,16 +143,20 @@ uptobox_download() {
         echo 3600
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
-
+    
     # Retrive (post) form data if one is present
     FORM_HTML=$(grep_form_by_order "$PAGE" 1) || return
-    if match 'data-create-download-link' $FORM_HTML; then
+
+    WAIT_TIME=$(parse_attr_quiet 'data-remaining-time' <<< "$FORM_HTML")
+    if [ -n "$WAIT_TIME" ]; then
+        wait $((WAIT_TIME + 1)) || return
+    fi
+
         FORM_WAITINGTOKEN=$(parse_form_input_by_name 'waitingToken' <<< "$FORM_HTML") || return
         PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
          -F "waitingToken=$FORM_WAITINGTOKEN" \
          -F "referer=$URL" \
          "$URL") || return
-    fi
 
     # Handle premium downloads
     # Have not premium account to test
@@ -217,11 +221,6 @@ uptobox_download() {
         { read CHALL; read CAPTCHA_ID; } <<< "$RESP"
 
         CAPTCHA_DATA="-F adcopy_challenge=$CHALL -F adcopy_response=manual_challenge"
-    fi
-
-    WAIT_TIME=$(parse_tag_quiet '[Ww]ait.*seconds' 'span' <<< "$FORM_HTML")
-    if [ -n "$WAIT_TIME" ]; then
-        wait $((WAIT_TIME + 1)) || return
     fi
 
     # <p class="err">Invalid captcha</p>
