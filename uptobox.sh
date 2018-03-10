@@ -152,11 +152,13 @@ uptobox_download() {
         wait $((WAIT_TIME + 1)) || return
     fi
 
+    if matchi 'waitingToken' "$FORM_HTML"; then
         FORM_WAITINGTOKEN=$(parse_form_input_by_name 'waitingToken' <<< "$FORM_HTML") || return
         PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
          -F "waitingToken=$FORM_WAITINGTOKEN" \
          -F "referer=$URL" \
          "$URL") || return
+    fi
 
     # Handle premium downloads
     # Have not premium account to test
@@ -238,6 +240,7 @@ uptobox_download() {
     #test if you can download something
     if match 'start your download' "$PAGE"; then
         parse 'start your download' 'href="\([^"]\+\)"' -1 <<< "$PAGE" || return
+        echo "$FORM_FNAME"
     else
         log_error "no matching link to download your file"
         return $ERR_FATAL
