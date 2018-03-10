@@ -48,7 +48,7 @@ catshare_login() {
     [ -z "$STATUS" ] && return $ERR_LOGIN_FAILED
 
     NAME=$(parse_quiet '"/account"' 'i>\([^<]*\)</' 1 <<< "$PAGE")
-    TYPE=$(parse '"/account"'  '>\([^<]*\)</' 5 <<< "$PAGE") || return
+    TYPE=$(parse '"/premium"' '">\([^<]*\)</' 1 <<< "$PAGE") || return
 
     if [ "$TYPE" = 'Darmowe' ]; then
         TYPE='free'
