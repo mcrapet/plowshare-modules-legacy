@@ -213,7 +213,7 @@ mediafire_get_ofuscated_link() {
 # stdout: real file download link
 mediafire_download() {
     local -r COOKIE_FILE=$1
-    local -r BASE_URL='http://www.mediafire.com'
+    local -r BASE_URL='https://www.mediafire.com'
     local FILE_ID URL PAGE JSON JS_VAR
 
     if [ -n "$AUTH_FREE" ]; then
