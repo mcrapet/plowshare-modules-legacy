@@ -22,6 +22,7 @@ MODULE_1FICHIER_REGEXP_URL='https\?://\(.*\.\)\?\(1fichier\.\(com\|net\|org\|fr\
 MODULE_1FICHIER_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,Premium account
 LINK_PASSWORD,p,link-password,S=PASSWORD,Used in password-protected files
+PURGE,,purgesessions,,Purge old sessions
 RESTRICT,,restrictip,,Restrict login session to my IP address"
 MODULE_1FICHIER_DOWNLOAD_RESUME=yes
 MODULE_1FICHIER_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
@@ -51,9 +52,10 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local LOGIN_DATA LOGIN_RESULT SID
 
     # Long session                            lt=on
-    # Restrict the session to my IP address   purge=on
-    # Purge old sessions                      restrict=on
-    LOGIN_DATA='mail=$USER&pass=$PASSWORD&lt=on&purge=on&secure=on&Login=Login'
+    # Purge old sessions                      purge=on
+    # Restrict the session to my IP address   restrict=on
+    LOGIN_DATA='mail=$USER&pass=$PASSWORD&lt=on&secure=on&Login=Login'
+    [ -z "$PURGE" ] || LOGIN_DATA="$LOGIN_DATA&purge=on"
     [ -z "$RESTRICT" ] || LOGIN_DATA="$LOGIN_DATA&restrict=on"
 
     LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
