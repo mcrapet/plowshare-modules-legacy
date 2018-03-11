@@ -90,16 +90,16 @@ uptobox_download() {
     local -r URL=$(replace '://www.' '://' <<< "$2")
     local -r BASE_URL='http://uptobox.com'
     local PAGE WAIT_TIME CODE PREMIUM CAPTCHA_DATA CAPTCHA_ID
-    local FORM_HTML FORM_OP FORM_USR FORM_ID FORM_FNAME FORM_RAND FORM_METHOD FORM_DD FORM_SZ
+    local FORM_HTML FORM_OP FORM_ID FORM_RAND FORM_METHOD FORM_DD FORM_SZ FORM_WAITINGTOKEN
 
     if [ -n "$AUTH" ]; then
         uptobox_login "$AUTH" "$COOKIE_FILE" 'https://login.uptobox.com' || return
 
         # Distinguish acount type (free or premium)
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
-
+        
         # Opposite is: 'Upgrade to premium';
-        if match 'Renew Premium' "$PAGE"; then
+        if matchi 'Renew premium' "$PAGE"; then
             local DIRECT_URL
             PREMIUM=1
             DIRECT_URL=$(curl -I -b "$COOKIE_FILE" "$URL" | grep_http_header_location_quiet)
@@ -107,7 +107,7 @@ uptobox_download() {
                 echo "$DIRECT_URL"
                 return 0
             fi
-
+            
             PAGE=$(curl -i -b "$COOKIE_FILE" -b 'lang=english' "$URL") || return
         else
             # Should wait 45s instead of 60s!
@@ -118,7 +118,6 @@ uptobox_download() {
     fi
 
     PAGE=$(uptobox_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL") || return
-
     # To give priority to premium users, you have to wait x minutes, x seconds
     if match '>To give priority to premium users, you have to wait' "$PAGE"; then
         local MINS
@@ -144,20 +143,33 @@ uptobox_download() {
         echo 3600
         return $ERR_LINK_TEMP_UNAVAILABLE
     fi
+    
+    # Retrive (post) form data if one is present
+    FORM_HTML=$(grep_form_by_order "$PAGE" 1) || return
 
-    # Send (post) form
-    # FIXME later: fname
-    FORM_HTML=$(grep_form_by_name "$PAGE" 'F1') || return
-    FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
-    FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
-    FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
-    FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
-    FORM_METHOD=$(parse_form_input_by_name_quiet 'method_free' <<< "$FORM_HTML")
+    WAIT_TIME=$(parse_attr_quiet 'data-remaining-time' <<< "$FORM_HTML")
+    if [ -n "$WAIT_TIME" ]; then
+        wait $((WAIT_TIME + 1)) || return
+    fi
+
+    if matchi 'waitingToken' "$FORM_HTML"; then
+        FORM_WAITINGTOKEN=$(parse_form_input_by_name 'waitingToken' <<< "$FORM_HTML") || return
+        PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
+         -F "waitingToken=$FORM_WAITINGTOKEN" \
+         -F "referer=$URL" \
+         "$URL") || return
+    fi
 
     # Handle premium downloads
+    # Have not premium account to test
     if [ "$PREMIUM" = '1' ]; then
         local FILE_URL
+
+        FORM_OP=$(parse_form_input_by_name 'op' <<< "$FORM_HTML") || return
+        FORM_ID=$(parse_form_input_by_name 'id' <<< "$FORM_HTML") || return
+        FORM_DD=$(parse_form_input_by_name_quiet 'down_direct' <<< "$FORM_HTML")
         FORM_RAND=$(parse_form_input_by_name 'rand' <<< "$FORM_HTML") || return
+        FORM_METHOD=$(parse_form_input_by_name_quiet 'method_free' <<< "$FORM_HTML")
 
         PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
             -d "op=$FORM_OP" \
@@ -213,36 +225,8 @@ uptobox_download() {
         CAPTCHA_DATA="-F adcopy_challenge=$CHALL -F adcopy_response=manual_challenge"
     fi
 
-    # Is this still needed?
-    FORM_USR=$(parse_form_input_by_name_quiet 'usr_login' <<< "$FORM_HTML")
-
-    WAIT_TIME=$(parse_tag_quiet '[Ww]ait.*seconds' 'span' <<< "$FORM_HTML")
-    if [ -n "$WAIT_TIME" ]; then
-        wait $((WAIT_TIME + 1)) || return
-    fi
-
-    PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
-        -F "op=$FORM_OP" \
-        -F "id=$FORM_ID" \
-        -F "rand=$FORM_RAND" \
-        ${FORM_USR:+"-F usr_login=$FORM_USR"} \
-        -F "referer=$URL" \
-        -F "method_free=$FORM_METHOD" \
-        -F 'method_premium=' \
-        $CAPTCHA_DATA \
-        -F "down_direct=$FORM_DD" \
-        "$URL") || return
-
     # <p class="err">Invalid captcha</p>
-    if [ -n "$CAPTCHA_DATA" ]; then
-        if match 'Invalid captcha' "$PAGE"; then
-            captcha_nack $CAPTCHA_ID
-            return $ERR_CAPTCHA
-       else
-           captcha_ack $CAPTCHA_ID
-           log_debug 'Correct captcha'
-       fi
-    elif match '<p class="err">' "$PAGE"; then
+    if match '<p class="err">' "$PAGE"; then
         local ERR=$(parse_tag 'class="err">' p <<< "$PAGE")
         if match 'Skipped countdown' "$ERR"; then
             # Can do a retry
@@ -253,8 +237,15 @@ uptobox_download() {
         return $ERR_FATAL
     fi
 
-    parse 'start your download' 'href="\([^"]\+\)"' -2 <<< "$PAGE" || return
-    echo "$FORM_FNAME"
+    #test if you can download something
+    if match 'start your download' "$PAGE"; then
+        parse 'start your download' 'href="\([^"]\+\)"' -1 <<< "$PAGE" || return
+        echo "$FORM_FNAME"
+    else
+        log_error "no matching link to download your file"
+        return $ERR_FATAL
+    fi
+    
 }
 
 # Upload a file to uptobox.com
