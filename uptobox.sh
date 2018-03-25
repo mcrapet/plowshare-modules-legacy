@@ -37,11 +37,11 @@ MODULE_UPTOBOX_PROBE_OPTIONS=""
 uptobox_login() {
     local AUTH=$1
     local COOKIE_FILE=$2
-    local POST_URL="$3/logarithme"
+    local POST_URL="$3?op=login"
 
     local LOGIN_DATA LOGIN_RESULT SID ERR
 
-    LOGIN_DATA='op=login&redirect=&login=$USER&password=$PASSWORD'
+    LOGIN_DATA='login=$USER&password=$PASSWORD'
     LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" "$POST_URL") || return
 
     # {"success" : "OK", "msg" : "please wait..."}
@@ -93,7 +93,7 @@ uptobox_download() {
     local FORM_HTML FORM_OP FORM_ID FORM_RAND FORM_METHOD FORM_DD FORM_SZ FORM_WAITINGTOKEN
 
     if [ -n "$AUTH" ]; then
-        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://login.uptobox.com' || return
+        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.com' || return
 
         # Distinguish acount type (free or premium)
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
@@ -264,7 +264,7 @@ uptobox_upload() {
     local FORM_FN FORM_ST FORM_OP
 
     if [ -n "$AUTH" ]; then
-        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://login.uptobox.com' || return
+        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.com' || return
     fi
 
     PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
