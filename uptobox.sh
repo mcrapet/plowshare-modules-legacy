@@ -87,8 +87,8 @@ uptobox_cloudflare() {
 # stdout: real file download link
 uptobox_download() {
     local -r COOKIE_FILE=$1
-    local -r URL=$(replace '://www.' '://' <<< "$2")
-    local -r BASE_URL='http://uptobox.com'
+    local -r URL=$(replace '://www.' '://' <<< "$2" | replace 'http:' 'https:')
+    local -r BASE_URL='https://uptobox.com'
     local PAGE WAIT_TIME CODE PREMIUM CAPTCHA_DATA CAPTCHA_ID
     local FORM_HTML FORM_OP FORM_ID FORM_RAND FORM_METHOD FORM_DD FORM_SZ FORM_WAITINGTOKEN
 
@@ -257,7 +257,7 @@ uptobox_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://uptobox.com'
+    local -r BASE_URL='https://uptobox.com'
 
     local PAGE URL UPLOAD_ID USER_TYPE DL_URL DEL_URL
     local FORM_HTML FORM_ACTION FORM_UTYPE FORM_TMP_SRV FORM_BUTTON FORM_SESS
