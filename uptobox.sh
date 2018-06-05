@@ -72,7 +72,7 @@ uptobox_cloudflare() {
     local PAGE=$1
 
     # <title>Attention Required! | CloudFlare</title>
-    if matchi 'Cloudflare' "$(parse_tag 'title' <<< "$PAGE")"; then
+    if matchi 'Cloudflare' "$(parse_tag_quiet 'title' <<< "$PAGE")"; then
         log_error 'Cloudflare captcha request, plowshare does not handle new google captchas'
         # FIXME
         return $ERR_FATAL
@@ -297,23 +297,21 @@ uptobox_probe() {
     PAGE=$(curl -L -b 'lang=english' "$URL") || return
     PAGE=$(uptobox_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL") || return
 
-    # Not nice!
-    # <div style="position:absolute;display: none;">No such file No such user exist File not found</div>
-    # The file you were looking for could not be found, sorry for any inconvenience
-    if matchi '<span[[:space:]].*File Not Found' "$PAGE"; then
+    # <h1>File not found </h1>
+    if matchi '<h1.*File not found' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        parse_form_input_by_name 'fname' <<< "$PAGE" && REQ_OUT="${REQ_OUT}f"
+        FILE=$(parse_tag 'h1'  <<< "$PAGE") && REQ_OUT="${REQ_OUT}"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(echo "$PAGE" | parse 'class="para_title"' \
-            '[[:space:]](\([^)]\+\)') && translate_size "$FILE_SIZE" && \
+        FILE_SIZE=$(echo "$FILE" | parse '[[:space:]](\([^)]\+\)') && translate_size "$FILE_SIZE" && \
             REQ_OUT="${REQ_OUT}s"
+        log_debug $FILE_SIZE
     fi
 
     if [[ $REQ_IN = *i* ]]; then
