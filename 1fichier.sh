@@ -98,7 +98,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
 1fichier_download() {
     local -r COOKIE_FILE=$1
     local URL=$(replace 'http://' 'https://' <<< "$2")
-    local FID PAGE FILE_URL FILE_NAME WAIT CV SESS
+    local FID PAGE FILE_URL FILE_NAME WAIT CV SESS ADZONE DL_PAGE
 
     FID=$(parse_quiet . '://\([[:alnum:]]*\)\.' <<< "$URL")
     if [ -n "$FID" ] && [ "$FID" != '1fichier' ]; then
@@ -198,8 +198,13 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     # Authenticated download with forced menu
     FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
 
-    # Click here to download the file
+    # Fetch the download page and parse file url
     if [ -z "$FILE_URL" ] ; then
+        if [[ $PAGE =~ name=\"adzone\"[[:space:]]value=\"([^\"]*)\" ]]; then
+            ADZONE=${BASH_REMATCH[1]}
+        fi
+        PAGE=$(curl -F "adzone=$ADZONE" -b "$COOKIE_FILE" -b 'LG=en' "$URL") || return
+
         FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
     fi
 
