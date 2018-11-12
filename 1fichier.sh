@@ -199,13 +199,12 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
 
     # Fetch the download page and parse file url
-    if [ -z "$FILE_URL" ] ; then
+    if [ -z "$FILE_URL" ]; then
         if [[ $PAGE =~ name=\"adzone\"[[:space:]]value=\"([^\"]*)\" ]]; then
             ADZONE=${BASH_REMATCH[1]}
+            PAGE=$(curl -F "adzone=$ADZONE" -b "$COOKIE_FILE" -b 'LG=en' "$URL")
         fi
-        PAGE=$(curl -F "adzone=$ADZONE" -b "$COOKIE_FILE" -b 'LG=en' "$URL") || return
-
-        FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
+	    FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
     fi
 
     if [ -z "$FILE_URL" ]; then
