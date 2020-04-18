@@ -401,8 +401,8 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     fi
 
     PAGE=$(curl -L "$URL") || return
-    LINKS=$(echo "$PAGE" | parse_all_attr_quiet 'T.l.chargement de' href)
-    NAMES=$(echo "$PAGE" | parse_all_tag_quiet 'T.l.chargement de' a)
+    LINKS=$(echo "$PAGE" | parse_all_attr_quiet 'Download' href)
+    NAMES=$(echo "$PAGE" | parse_all_tag_quiet 'Download' a)
 
     test "$LINKS" || return $ERR_LINK_DEAD
 
