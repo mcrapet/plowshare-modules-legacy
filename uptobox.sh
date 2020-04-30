@@ -267,7 +267,7 @@ uptobox_upload() {
         uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.com' || return
     fi
 
-    PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
+    PAGE=$(curl -L -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
 
     FORM_HTML=$(grep_form_by_id "$PAGE" 'fileupload') || return
     FORM_ACTION=$(parse_form_action <<< "$FORM_HTML") || return
