@@ -257,7 +257,7 @@ uptobox_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://uptobox.com'
+    local -r BASE_URL='https://uptobox.com'
 
     local PAGE URL UPLOAD_ID USER_TYPE DL_URL DEL_URL
     local FORM_HTML FORM_ACTION FORM_UTYPE FORM_TMP_SRV FORM_BUTTON FORM_SESS
