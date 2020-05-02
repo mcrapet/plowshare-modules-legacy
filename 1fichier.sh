@@ -103,6 +103,11 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     FID=$(parse_quiet . '://\([[:alnum:]]*\)\.' <<< "$URL")
     if [ -n "$FID" ] && [ "$FID" != '1fichier' ]; then
         URL="https://1fichier.com/?$FID"
+    else
+        FID=$(parse_quiet . '?\([[:alnum:]]*\)&af=[[:digit:]]*' <<< "$URL")
+        if [ -n "$FID" ]; then
+            URL="https://1fichier.com/?$FID"
+        fi
     fi
 
     if CV=$(storage_get 'cookie_file'); then
@@ -199,7 +204,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
 
     # Click here to download the file
-    if [ -z "$FILE_URL" ] ; then
+    if [ -z "$FILE_URL" ]; then
         FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
     fi
 
@@ -421,6 +426,11 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     FID=$(parse_quiet . '://\([[:alnum:]]*\)\.' <<< "$URL")
     if [ -n "$FID" ] && [ "$FID" != '1fichier' ]; then
         URL="https://1fichier.com/?$FID"
+    else
+        FID=$(parse_quiet . '?\([[:alnum:]]*\)&af=[[:digit:]]*' <<< "$URL")
+        if [ -n "$FID" ]; then
+            URL="https://1fichier.com/?$FID"
+        fi
     fi
 
     RESPONSE=$(1fichier_checklink "$URL") || return
