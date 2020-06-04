@@ -52,12 +52,10 @@ uptobox_login() {
         log_debug 'Successfully logged in'
         return 0
     fi
-
     # Try to parse error
-    ERR=$(parse_tag_quiet 'class="err"' 'font' <<< "$LOGIN_RESULT")
-    [ -n "$ERR" ] || ERR=$(parse_tag_quiet "class='err'" 'div' <<< "$LOGIN_RESULT")
+    ERR=$(parse_all_tag_quiet 'class="errors mb-3"' 'li' <<< "$LOGIN_RESULT")
+    [ -n "$ERR" ] || ERR=$(parse_all_tag_quiet "class='errors mb-3'" 'li' <<< "$LOGIN_RESULT")
     [ -n "$ERR" ] && log_error "Unexpected remote error: $ERR"
-
     return $ERR_LOGIN_FAILED
 }
 
