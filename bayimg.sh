@@ -79,7 +79,7 @@ bayimg_upload() {
 
     FILE_URL=$(parse_attr 'image-setting' href <<< "$PAGE") || return
 
-    echo "http:$FILE_URL"
+    echo "http://bayimg.com$FILE_URL"
     echo
     echo "$ADMIN_CODE"
 }
