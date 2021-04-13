@@ -71,6 +71,7 @@ nowdownload_co  | download | upload |        |      | probe |
 oboom           | download | upload |        | list | probe |
 openload        | download | upload |        |      | probe |
 pastebin        |          |        |        | list |       |
+pixeldrain      | download |        |        |      | probe |
 prefiles        | download |        |        |      | probe |
 promptfile      | download |        |        |      | probe |
 rapidgator      | download | upload | delete | list | probe |
