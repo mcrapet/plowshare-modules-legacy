@@ -49,9 +49,9 @@ rapidgator_login() {
     local -r BASE_URL=$3
     local LOGIN_DATA HTML EMAIL TYPE STATUS
 
-    LOGIN_DATA='LoginForm[email]=$USER&LoginForm[password]=$PASSWORD&LoginForm[rememberMe]=1'
+    LOGIN_DATA='LoginForm[email]=$USER&LoginForm[password]=$PASSWORD&LoginForm[rememberMe]=1&g-recaptcha-response='
     HTML=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
-        "$BASE_URL/auth/login" -L -b "$COOKIE_FILE") || return
+        "$BASE_URL/auth/login" -L -b "$COOKIE_FILE" -H "Referer: https://rapidgator.net/auth/login") || return
 
     # Check for JS redirection
     # <script language="JavaScript">function ZD5wC ... window.location.href='/auth/login?'+MGOwqz+'';MGOwqz='';</script>
