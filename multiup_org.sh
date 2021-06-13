@@ -127,7 +127,7 @@ multiup_org_upload() {
         $FORM_FIELDS "$SERVER") || return
 
     parse_json 'url' <<< "$JSON" || return
-    parse_json 'delete_url' <<< "$JSON"
+    parse_json 'deleteUrl' <<< "$JSON"
     return 0
 }
 
@@ -144,15 +144,9 @@ multiup_org_list() {
     COOKIE_FILE=$(create_tempfile) || return
     PAGE=$(curl -L -c "$COOKIE_FILE" "$URL") || return
 
-    LINK=$(parse_quiet 'class=.btn.' 'href=.\([^"]*\)' <<< "$PAGE")
-    if [ -n "$LINK" ]; then
-        LINK=$(replace '/fr/' '/en/' <<< "$LINK")
-        PAGE=$(curl -b "$COOKIE_FILE" --referer "$URL" "$BASE_URL$LINK") || return
-    fi
-
     rm -f "$COOKIE_FILE"
 
-    LINKS=$(parse_all_quiet 'dateLastChecked=' 'href=.\([^"]*\)' <<< "$PAGE")
+    LINKS=$(parse_all_quiet 'dateLastChecked=' 'link=.\([^"]*\)' <<< "$PAGE")
     if [ -z "$LINKS" ]; then
         # <h3>File currently uploading ...</h3>
         if match '>File currently uploading \.\.\.<' "$PAGE"; then
