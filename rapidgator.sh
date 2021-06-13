@@ -291,6 +291,8 @@ rapidgator_download() {
 
     # If this is a premium download, we already have the download link
     if [ "$ACCOUNT" = 'premium' ]; then
+        MODULE_RAPIDGATOR_DOWNLOAD_SUCCESSIVE_INTERVAL=0
+        
         # Consider errors (enforced limits) which only occur for premium users
         # You have reached quota of downloaded information for premium accounts
         if match 'reached quota of downloaded information' "$HTML"; then
