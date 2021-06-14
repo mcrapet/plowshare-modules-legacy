@@ -435,6 +435,10 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
 
     RESPONSE=$(1fichier_checklink "$URL") || return
 
+    if [[ $RESPONSE == "IP Locked" ]]; then
+    	return $ERR_SYSTEM
+    fi
+
     # url;filename;filesize
     IFS=';' read -r URL FILE_NAME FILE_SIZE <<< "$RESPONSE"
 
