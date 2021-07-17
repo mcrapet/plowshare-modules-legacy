@@ -52,12 +52,10 @@ uptobox_login() {
         log_debug 'Successfully logged in'
         return 0
     fi
-
     # Try to parse error
-    ERR=$(parse_tag_quiet 'class="err"' 'font' <<< "$LOGIN_RESULT")
-    [ -n "$ERR" ] || ERR=$(parse_tag_quiet "class='err'" 'div' <<< "$LOGIN_RESULT")
+    ERR=$(parse_all_tag_quiet 'class="errors mb-3"' 'li' <<< "$LOGIN_RESULT")
+    [ -n "$ERR" ] || ERR=$(parse_all_tag_quiet "class='errors mb-3'" 'li' <<< "$LOGIN_RESULT")
     [ -n "$ERR" ] && log_error "Unexpected remote error: $ERR"
-
     return $ERR_LOGIN_FAILED
 }
 
@@ -72,7 +70,7 @@ uptobox_cloudflare() {
     local PAGE=$1
 
     # <title>Attention Required! | CloudFlare</title>
-    if matchi 'Cloudflare' "$(parse_tag 'title' <<< "$PAGE")"; then
+    if matchi 'Cloudflare' "$(parse_tag_quiet 'title' <<< "$PAGE")"; then
         log_error 'Cloudflare captcha request, plowshare does not handle new google captchas'
         # FIXME
         return $ERR_FATAL
@@ -87,7 +85,7 @@ uptobox_cloudflare() {
 # stdout: real file download link
 uptobox_download() {
     local -r COOKIE_FILE=$1
-    local -r URL=$(replace '://www.' '://' <<< "$2")
+    local -r URL=$(replace '://www.' '://' <<< "$2" | replace 'http:' 'https:')
     local -r BASE_URL='http://uptobox.com'
     local PAGE WAIT_TIME CODE PREMIUM CAPTCHA_DATA CAPTCHA_ID
     local FORM_HTML FORM_OP FORM_ID FORM_RAND FORM_METHOD FORM_DD FORM_SZ FORM_WAITINGTOKEN
@@ -99,7 +97,7 @@ uptobox_download() {
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
         
         # Opposite is: 'Upgrade to premium';
-        if matchi 'Renew premium' "$PAGE"; then
+        if matchi 'Extend Premium' "$PAGE"; then
             local DIRECT_URL
             PREMIUM=1
             DIRECT_URL=$(curl -I -b "$COOKIE_FILE" "$URL" | grep_http_header_location_quiet)
@@ -257,7 +255,7 @@ uptobox_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://uptobox.com'
+    local -r BASE_URL='https://uptobox.com'
 
     local PAGE URL UPLOAD_ID USER_TYPE DL_URL DEL_URL
     local FORM_HTML FORM_ACTION FORM_UTYPE FORM_TMP_SRV FORM_BUTTON FORM_SESS
@@ -267,7 +265,7 @@ uptobox_upload() {
         uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.com' || return
     fi
 
-    PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
+    PAGE=$(curl -L -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
 
     FORM_HTML=$(grep_form_by_id "$PAGE" 'fileupload') || return
     FORM_ACTION=$(parse_form_action <<< "$FORM_HTML") || return
@@ -297,23 +295,21 @@ uptobox_probe() {
     PAGE=$(curl -L -b 'lang=english' "$URL") || return
     PAGE=$(uptobox_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL") || return
 
-    # Not nice!
-    # <div style="position:absolute;display: none;">No such file No such user exist File not found</div>
-    # The file you were looking for could not be found, sorry for any inconvenience
-    if matchi '<span[[:space:]].*File Not Found' "$PAGE"; then
+    # <h1>File not found </h1>
+    if matchi '<h1.*File not found' "$PAGE"; then
         return $ERR_LINK_DEAD
     fi
 
     REQ_OUT=c
 
     if [[ $REQ_IN = *f* ]]; then
-        parse_form_input_by_name 'fname' <<< "$PAGE" && REQ_OUT="${REQ_OUT}f"
+        FILE=$(parse_tag 'h1'  <<< "$PAGE") && REQ_OUT="${REQ_OUT}"
     fi
 
     if [[ $REQ_IN = *s* ]]; then
-        FILE_SIZE=$(echo "$PAGE" | parse 'class="para_title"' \
-            '[[:space:]](\([^)]\+\)') && translate_size "$FILE_SIZE" && \
+        FILE_SIZE=$(echo "$FILE" | parse '[[:space:]](\([^)]\+\)') && translate_size "$FILE_SIZE" && \
             REQ_OUT="${REQ_OUT}s"
+        log_debug $FILE_SIZE
     fi
 
     if [[ $REQ_IN = *i* ]]; then

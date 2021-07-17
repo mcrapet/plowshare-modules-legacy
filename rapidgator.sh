@@ -49,9 +49,9 @@ rapidgator_login() {
     local -r BASE_URL=$3
     local LOGIN_DATA HTML EMAIL TYPE STATUS
 
-    LOGIN_DATA='LoginForm[email]=$USER&LoginForm[password]=$PASSWORD&LoginForm[rememberMe]=1'
+    LOGIN_DATA='LoginForm[email]=$USER&LoginForm[password]=$PASSWORD&LoginForm[rememberMe]=1&g-recaptcha-response='
     HTML=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
-        "$BASE_URL/auth/login" -L -b "$COOKIE_FILE") || return
+        "$BASE_URL/auth/login" -L -b "$COOKIE_FILE" -H "Referer: https://rapidgator.net/auth/login") || return
 
     # Check for JS redirection
     # <script language="JavaScript">function ZD5wC ... window.location.href='/auth/login?'+MGOwqz+'';MGOwqz='';</script>
@@ -291,6 +291,8 @@ rapidgator_download() {
 
     # If this is a premium download, we already have the download link
     if [ "$ACCOUNT" = 'premium' ]; then
+        MODULE_RAPIDGATOR_DOWNLOAD_SUCCESSIVE_INTERVAL=0
+        
         # Consider errors (enforced limits) which only occur for premium users
         # You have reached quota of downloaded information for premium accounts
         if match 'reached quota of downloaded information' "$HTML"; then

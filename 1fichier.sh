@@ -103,6 +103,11 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     FID=$(parse_quiet . '://\([[:alnum:]]*\)\.' <<< "$URL")
     if [ -n "$FID" ] && [ "$FID" != '1fichier' ]; then
         URL="https://1fichier.com/?$FID"
+    else
+        FID=$(parse_quiet . '?\([[:alnum:]]*\)&af=[[:digit:]]*' <<< "$URL")
+        if [ -n "$FID" ]; then
+            URL="https://1fichier.com/?$FID"
+        fi
     fi
 
     if CV=$(storage_get 'cookie_file'); then
@@ -198,7 +203,6 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     # Authenticated download with forced menu
     FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
 
-    # Fetch the download page and parse file url
     if [ -z "$FILE_URL" ]; then
         if [[ $PAGE =~ name=\"adzone\"[[:space:]]value=\"([^\"]*)\" ]]; then
             ADZONE=${BASH_REMATCH[1]}
@@ -405,8 +409,8 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     fi
 
     PAGE=$(curl -L "$URL") || return
-    LINKS=$(echo "$PAGE" | parse_all_attr_quiet 'T.l.chargement de' href)
-    NAMES=$(echo "$PAGE" | parse_all_tag_quiet 'T.l.chargement de' a)
+    LINKS=$(echo "$PAGE" | parse_all_attr_quiet 'Download' href)
+    NAMES=$(echo "$PAGE" | parse_all_tag_quiet 'Download' a)
 
     test "$LINKS" || return $ERR_LINK_DEAD
 
@@ -425,6 +429,11 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     FID=$(parse_quiet . '://\([[:alnum:]]*\)\.' <<< "$URL")
     if [ -n "$FID" ] && [ "$FID" != '1fichier' ]; then
         URL="https://1fichier.com/?$FID"
+    else
+        FID=$(parse_quiet . '?\([[:alnum:]]*\)&af=[[:digit:]]*' <<< "$URL")
+        if [ -n "$FID" ]; then
+            URL="https://1fichier.com/?$FID"
+        fi
     fi
 
     RESPONSE=$(1fichier_checklink "$URL") || return

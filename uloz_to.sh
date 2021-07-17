@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_ULOZ_TO_REGEXP_URL='https\?://\(www\.\)\?\(ulozto\.net\|uloz\.to\|ulozto\.sk\|zachowajto\.pl\)/'
+MODULE_ULOZ_TO_REGEXP_URL='https\?://\(www\.\)\?\(ulozto\.net\|uloz\.to\|ulozto\.cz\|ulozto\.sk\|zachowajto\.pl\)/'
 
 MODULE_ULOZ_TO_DOWNLOAD_OPTIONS=""
 MODULE_ULOZ_TO_DOWNLOAD_RESUME=yes

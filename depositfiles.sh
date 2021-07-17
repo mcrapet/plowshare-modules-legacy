@@ -21,7 +21,7 @@ MODULE_DEPOSITFILES_REGEXP_URL='https\?://\(www\.\)\?\(depositfiles\.\(com\|org\
 MODULE_DEPOSITFILES_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account"
 MODULE_DEPOSITFILES_DOWNLOAD_RESUME=yes
-MODULE_DEPOSITFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=unused
+MODULE_DEPOSITFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=yes
 MODULE_DEPOSITFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_DEPOSITFILES_UPLOAD_OPTIONS="
@@ -42,11 +42,31 @@ depositfiles_login() {
     local BASE_URL=$3
 
     local LOGIN_DATA LOGIN_RESULT
+    local CV PAGE MSG SESS
 
     LOGIN_DATA='go=1&login=$USER&password=$PASSWORD'
-    LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
-        "$BASE_URL/login.php" -b 'lang_current=en') || return
+    if CV=$(storage_get 'cookie_file'); then
+        echo "$CV" >"$COOKIE_FILE"
 
+        # Check for expired session.
+        PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL") || return
+        if ! match '>My profile<' "$PAGE"; then
+            storage_set 'cookie_file'
+            return $ERR_EXPIRED_SESSION
+        fi
+
+        SESS=$(parse_cookie 'autologin' < "$COOKIE_FILE")
+        log_debug "session (cached): '$SESS'"
+        MSG='reused login for'
+    else
+	LOGIN_RESULT=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
+				  "$BASE_URL/login.php" -b 'lang_current=en') || return
+        storage_set 'cookie_file' "$(cat "$COOKIE_FILE")"
+
+        SESS=$(parse_cookie 'autologin' < "$COOKIE_FILE")
+        log_debug "session (new): '$SESS'"
+        MSG='logged in as'
+    fi
     if match 'recaptcha' "$LOGIN_RESULT"; then
         log_debug 'recaptcha solving required for login'
 
@@ -84,7 +104,7 @@ depositfiles_login() {
 depositfiles_download() {
     local COOKIEFILE=$1
     local URL=$2
-    local -r BASE_URL='https://dfiles.eu'
+    local -r BASE_URL='https://depositfiles.com'
     local START DLID WAITTIME DATA FID SLEEP FILE_URL
 
     if [ -n "$AUTH" ]; then
@@ -110,9 +130,8 @@ depositfiles_download() {
         return $ERR_LINK_DEAD
     fi
 
-
-    if match "download_started()" "$START"; then
-        FILE_URL=$(echo "$START" | parse_attr 'download_started()' 'href') || return
+    if match ">File Download<" "$START"; then
+        FILE_URL=$(echo "$START" | parse_attr 'Download' 'href') || return
         echo "$FILE_URL"
         return 0
     fi

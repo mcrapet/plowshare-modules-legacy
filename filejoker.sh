@@ -22,7 +22,7 @@ MODULE_FILEJOKER_REGEXP_URL='https\?://\(www\.\)\?filejoker\.net/[[:alnum:]]\+'
 MODULE_FILEJOKER_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=EMAIL:PASSWORD,User account"
 MODULE_FILEJOKER_DOWNLOAD_RESUME=no
-MODULE_FILEJOKER_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
+MODULE_FILEJOKER_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=yes
 MODULE_FILEJOKER_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_FILEJOKER_PROBE_OPTIONS=""
@@ -158,13 +158,23 @@ filejoker_download() {
     if [ "$ACCOUNT" = 'premium' ]; then
         MODULE_FILEJOKER_DOWNLOAD_RESUME=yes
 
+        FORM_HTML=$(grep_form_by_name "$PAGE" "F1")
+        FORM_OP=$(echo "$FORM_HTML" | parse_form_input_by_name 'op') || return
+        FORM_ID=$(echo "$FORM_HTML" | parse_form_input_by_name 'id') || return
+        FORM_RAND=$(echo "$FORM_HTML" | parse_form_input_by_name 'rand') || return
+        FORM_DOWN=$(echo "$FORM_HTML" | parse_form_input_by_name 'down_direct') || return
+        FORM_METHOD=$(echo "$FORM_HTML" | parse_form_input_by_name_quiet 'method_premium')
+
+        PAGE=$(curl -b "$COOKIE_FILE" -b 'lang=english' \
+            -d "op=$FORM_OP" \
+             -d "id=$FORM_ID" \
+             -d "rand=$FORM_RAND" \
+             -d 'referer=' \
+             -d "method_premium=$FORM_METHOD" \
+             -d "down_direct=$FORM_DOWN" "$URL") || return
+
         # Get a download link, if this was a direct download.
-        FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
-
-        if [ -z "$FILE_URL" ]; then
-            : # Not implemented.
-        fi
-
+        FILE_URL=$(echo "$PAGE" | parse_attr_quiet 'Download File' href)
         echo "$FILE_URL"
         return 0
     fi
