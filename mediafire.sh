@@ -317,8 +317,10 @@ mediafire_download() {
     fi
 
     DL_URL=$(echo "$PAGE" | parse 'input popsok' '"\([^"]\+\)"' 2)
+    FILE_NAME=$(echo "$PAGE" | parse 'var optFileName' '"\([^"]\+\)"' | uri_decode)
 
     echo "$DL_URL"
+    echo "$FILE_NAME" 
 }
 
 # Static function. Proceed with login using official API
