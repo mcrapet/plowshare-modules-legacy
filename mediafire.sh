@@ -193,20 +193,6 @@ mediafire_check_folder() {
     return $ERR_BAD_COMMAND_LINE
 }
 
-mediafire_get_ofuscated_link() {
-    local VAR=$1
-    local I N C R
-
-    I=0
-    N=${#VAR}
-    while (( I < N )); do
-        C=$((16#${VAR:$I:2} + 0x18))
-        R="$R"$(printf \\$(($C/64*100+$C%64/8*10+$C%8)))
-        (( I += 2 ))
-    done
-    echo "$R"
-}
-
 # Output a mediafire file download URL
 # $1: cookie file
 # $2: mediafire.com url
@@ -330,13 +316,11 @@ mediafire_download() {
         PAGE=$(curl -b "$COOKIE_FILE" "$URL" | break_html_lines) || return
     fi
 
-    JS_VAR=$(echo "$PAGE" | parse 'function[[:space:]]*_' '"\(.\+\)";' 1)
+    DL_URL=$(echo "$PAGE" | parse 'input popsok' '"\([^"]\+\)"' 2)
+    FILE_NAME=$(echo "$PAGE" | parse 'var optFileName' '"\([^"]\+\)"' | uri_decode)
 
-    # extract + output download link + file name
-    mediafire_get_ofuscated_link "$JS_VAR" | parse_attr href || return
-    if ! parse_attr 'og:title' 'content' <<< "$PAGE"; then
-        parse_tag 'title' <<< "$PAGE" || return
-    fi
+    echo "$DL_URL"
+    echo "$FILE_NAME" 
 }
 
 # Static function. Proceed with login using official API
