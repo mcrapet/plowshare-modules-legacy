@@ -23,9 +23,12 @@ MODULE_KRAKENFILES_DOWNLOAD_RESUME=yes
 MODULE_KRAKENFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
 MODULE_KRAKENFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
+MODULE_KRAKENFILES_UPLOAD_OPTIONS=""
+MODULE_KRAKENFILES_UPLOAD_REMOTE_SUPPORT=no
+
 MODULE_KRAKENFILES_PROBE_OPTIONS=""
 
-# Output an krakenfiles.com file download URL
+# Output an KrakenFiles.com file download URL
 # $1: cookie file (unused here)
 # $2: krakenfiles url
 # stdout: real file download link
@@ -68,6 +71,93 @@ krakenfiles_download() {
 
     echo $JSON | parse_json url || return
     echo "$PAGE" | parse_attr '=.og:title.' content
+}
+
+# Upload a file to KrakenFiles.com
+# $1: cookie file (unused)
+# $2: input file (with full path)
+# $3: remote filename
+# stdout: krakenfiles download link
+krakenfiles_upload() {
+    local -r COOKIE_FILE=$1
+    local -r FILE=$2
+    local -r DEST_FILE=$3
+    local -r BASE_URL='https://krakenfiles.com'
+    local PAGE SERVER MAX_SIZE CHUNK_SIZE JSON JSON2 FILE_URL STATUS
+    local NUM_CHUNKS CHUNK OFFSET OFFSET_PREV TMP_FILE PART_FILE
+
+    PAGE=$(curl "$BASE_URL") || return
+
+    SERVER=$(parse '\s\+url:\s*"' ':\s*"\([^"]*\)"' <<< "$PAGE") || return
+    log_debug "Upload server $SERVER"
+
+    MAX_SIZE=$(parse . '\s\+maxFileSize:\s*\([[:digit:]]\+\),' <<< "$PAGE") || return
+
+    local SZ=$(get_filesize "$FILE")
+    if [ "$SZ" -gt "$MAX_SIZE" ]; then
+        log_debug 'file is bigger than '$(( MAX_SIZE / 1048576 ))' MB'
+        return $ERR_SIZE_LIMIT_EXCEEDED
+    fi
+
+    CHUNK_SIZE=$(parse . '\s\+maxChunkSize:\s*\([[:digit:]]\+\),' <<< "$PAGE") || return
+    if [ "$SZ" -lt "$CHUNK_SIZE" ]; then
+
+      # {"files":[{"name":"5MiB.bin","size":"5.00 MB","error":"","url":"\/view\/40zFezYgbD\/file.html","hash":"40zFezYgbD"}]}
+      JSON=$(curl_with_log -H "Origin: $BASE_URL" \
+          --referer "$BASE_URL" \
+          -F "files[]=@${FILE};type=application/octet-stream;filename=${DEST_FILE}" \
+          "https:$SERVER") || return
+
+    else
+      NUM_CHUNKS=$(( (SZ + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+      log_debug "NC=$NUM_CHUNKS"
+
+      if ! check_exec 'split'; then
+          log_error "'split' is required but was not found in path."
+          return $ERR_SYSTEM
+      fi
+
+      TMP_FILE=$(create_tempfile) || return
+      split -d -b "$CHUNK_SIZE" "$FILE" "$TMP_FILE"
+
+      CHUNK=0
+      OFFSET=$(( CHUNK_SIZE - 1 ))
+      OFFSET_PREV=0
+      while (( CHUNK < NUM_CHUNKS )); do
+        log_debug "Processing chunk $((CHUNK+1))/$NUM_CHUNKS [${OFFSET_PREV}-${OFFSET}/$SZ]"
+
+        PART_FILE=$TMP_FILE$(printf "%02d" $CHUNK) # -a 2 of split
+
+        # curl's --range doesn't seem to work :(
+        JSON=$(curl_with_log -H "Origin: $BASE_URL" -H 'DNT: 1' \
+            --referer "$BASE_URL/" \
+            -H "Content-Range: bytes ${OFFSET_PREV}-${OFFSET}/$SZ" \
+            -H "Content-Disposition: attachment; filename=\"$DEST_FILE\"" \
+            -F "files[]=@$PART_FILE;filename=\"$DEST_FILE\"" \
+            "https:$SERVER") || return
+
+        rm -f "$PART_FILE"
+
+        OFFSET_PREV=$((OFFSET + 1))
+        (( OFFSET += CHUNK_SIZE ))
+        OFFSET=$((OFFSET >= SZ ? SZ - 1 : OFFSET))
+        (( ++CHUNK ))
+      done
+
+    fi
+
+    JSON2=$(parse_json 'files' <<< "$JSON" ) || return
+    JSON2=${JSON2#[}
+    JSON2=${JSON2%]}
+
+    STATUS=$(parse_json_quiet 'error' <<< "$JSON2") || return
+    if [ -n "$STATUS" ]; then
+        log_error "Unexpected status: $STATUS"
+        return $ERR_FATAL
+    fi
+
+    FILE_URL=$(parse_json 'url' <<< "$JSON2") || return
+    echo "$BASE_URL$FILE_URL"
 }
 
 # Probe a download URL.
