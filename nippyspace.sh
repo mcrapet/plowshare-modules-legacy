@@ -63,7 +63,7 @@ nippyspace_upload() {
 
     CHUNK=0
     while (( CHUNK < NUM_CHUNKS )); do
-      log_debug "Processing chunk $CHUNK/$NUM_CHUNKS"
+      log_debug "Processing chunk $((CHUNK+1))/$NUM_CHUNKS"
 
       JSON=$(curl_with_log -H "Origin: $BASE_URL" \
           --referer "$BASE_URL" \
