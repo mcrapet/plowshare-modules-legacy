@@ -51,6 +51,7 @@ go4up           |          | upload | delete | list |       |
 hdstream_to     | download | upload |        |      | probe |
 hexupload       | download |        |        |      | probe |
 hipfile         | download | upload | delete | list | probe |
+hostuje         | download |        |        |      |       |
 hotlink_cc      | download |        |        |      | probe |
 jheberg         |          | upload |        | list | probe |
 keep2share      | download | upload |        |      | probe |
