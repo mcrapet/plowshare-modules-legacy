@@ -1,5 +1,5 @@
 # Plowshare krakenfiles.com module
-# Copyright (c) 2021 Plowshare team
+# Copyright (c) 2021-2022 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -21,6 +21,8 @@ MODULE_KRAKENFILES_REGEXP_URL='https://krakenfiles\.com/'
 MODULE_KRAKENFILES_DOWNLOAD_OPTIONS=""
 MODULE_KRAKENFILES_DOWNLOAD_RESUME=yes
 MODULE_KRAKENFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
+MODULE_KRAKENFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(--referer)
+
 MODULE_KRAKENFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
 
 MODULE_KRAKENFILES_UPLOAD_OPTIONS=""
@@ -38,7 +40,7 @@ krakenfiles_download() {
     local -r BASE_URL='https://krakenfiles.com'
     local PAGE FORM_HTML FORM_ACTION FORM_TOKEN HASH JSON STATUS
 
-    PAGE=$(curl -b "$COOKIE_FILE" -c "$COOKIE_FILE" "$URL") || return
+    PAGE=$(curl -c "$COOKIE_FILE" "$URL") || return
 
     # <img class="nk-error-gfx" src="/images/gfx/error-404.svg" alt="">
     # <h3 class="nk-error-title">Oops! Why you’re here?</h3>
@@ -53,10 +55,9 @@ krakenfiles_download() {
     HASH=$(echo "$FORM_ACTION" | parse '' '.*/\([[:alnum:]]\+\)') || return
     log_debug "File ID: '$HASH'"
 
-    JSON=$(curl -b "$COOKIE_FILE" \
+    JSON=$(curl -c "$COOKIE_FILE" -b "$COOKIE_FILE" \
         -H 'X-Requested-With: XMLHttpRequest' \
         -H "hash: $HASH" \
-        -H "DNT: 1" \
         --referer "$URL" \
         -F "token=$FORM_TOKEN" \
         "$BASE_URL$FORM_ACTION") || return
@@ -68,6 +69,9 @@ krakenfiles_download() {
         log_error "Unexpected status: $STATUS"
         return $ERR_FATAL
     fi
+
+    # Mandatory!
+    MODULE_KRAKENFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(--referer "$URL")
 
     echo $JSON | parse_json url || return
     echo "$PAGE" | parse_attr '=.og:title.' content
