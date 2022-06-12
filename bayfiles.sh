@@ -1,38 +1,30 @@
-# Plowshare bayfiles.com module
-# Copyright (c) 2012-2013 Plowshare team
+# Plowshare bayfiles.com module Copyright (c) 2012-2013 Plowshare team
 #
-# This file is part of Plowshare.
+# This file is part of Plowshare. require install jq 
+# https://stedolan.github.io/jq/download/
 #
-# Plowshare is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Plowshare is free software: you can redistribute it and/or modify it 
+# under the terms of the GNU General Public License as published by the 
+# Free Software Foundation, either version 3 of the License, or (at your 
+# option) any later version.
 #
-# Plowshare is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Plowshare is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+# General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU General Public License 
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
-
-MODULE_BAYFILES_REGEXP_URL='https\?://\([[:alnum:]]\+\.\)\?bayfiles\.com/'
-
-MODULE_BAYFILES_DOWNLOAD_OPTIONS=""
-MODULE_BAYFILES_DOWNLOAD_RESUME=yes
-MODULE_BAYFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no
-MODULE_BAYFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=()
-MODULE_BAYFILES_DOWNLOAD_SUCCESSIVE_INTERVAL=
-
-MODULE_bayfiles_upload_OPTIONS=""
-MODULE_bayfiles_upload_REMOTE_SUPPORT=no
-
+MODULE_BAYFILES_REGEXP_URL='https\?://\?bayfiles\.com/' 
+MODULE_BAYFILES_DOWNLOAD_OPTIONS="" MODULE_BAYFILES_DOWNLOAD_RESUME=yes 
+MODULE_BAYFILES_DOWNLOAD_FINAL_LINK_NEEDS_COOKIE=no 
+MODULE_BAYFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=() 
+MODULE_BAYFILES_DOWNLOAD_SUCCESSIVE_INTERVAL= 
+MODULE_bayfiles_upload_OPTIONS="" 
+MODULE_bayfiles_upload_REMOTE_SUPPORT=no 
 MODULE_bayfiles_probe_OPTIONS=""
-
-# Output an bayfiles.com file download URL
-# $1: cookie file (unused here)
-# $2: bayfiles url
-# stdout: real file download link
+# Output an bayfiles.com file download URL $1: cookie file (unused here) 
+# $2: bayfiles url stdout: real file download link
 bayfiles_download() {
     local -r URL=$2
     local PAGE FILE_URL FILENAME
@@ -43,7 +35,7 @@ bayfiles_download() {
         return $ERR_LINK_DEAD
     fi
 
-    FILE_URL=$(echo "$PAGE" | parse_attr_quiet 'download_button' href)
+    FILE_URL=$(curl -L "$URL" | grep -i '>                    <img' | sed -e 's/href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d'| sed 's|                       ||')
 
     if [ -z "$FILE_URL" ]; then
         FILE_URL=$(echo "$PAGE" | \
@@ -59,67 +51,54 @@ bayfiles_download() {
     echo "$FILE_URL"
     echo "$FILENAME"
 }
-
-# Upload a file to bayfiles.com
-# Use API: https://bayfiles.com/docs/api
-# $1: cookie file (unused here)
-# $2: input file (with full path)
-# $3: remote filename
-# stdout: download
+# Upload a file to bayfiles.com Use API: https://bayfiles.com/docs/api 
+# $1: cookie file (unused here) $2: input file (with full path) $3: 
+# remote filename stdout: download
 bayfiles_upload() {
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r API_URL='https://bayfiles.com/api/v1/'
+    local -r API_URL='https://api.bayfiles.com/'
     local JSON DL_URL ERR MSG
-
-    # Note1: Accepted file types is very restrictive! According to site: jpg, jpeg, gif, png, pdf,
-    #        css, txt, avi, mpeg, mpg, mp3, doc, docx, odt, apk, 7z, rmvb, zip, rar, mkv, xls.
-
-    # Note2: -F "file_publish=on" does not work!
+    # Note1: Accepted file types is very restrictive! According to site: 
+    # jpg, jpeg, gif, png, pdf,
+    #        css, txt, avi, mpeg, mpg, mp3, doc, docx, odt, apk, 7z, 
+    # rmvb, zip, rar, mkv, xls. Note2: -F "file_publish=on" does not 
+    # work!
     JSON=$(curl_with_log \
         -F "file=@$FILE;filename=$DESTFILE" "${API_URL}upload") || return
-
-    DL_URL=$(parse_json_quiet url <<< "$JSON")
+		
+    DL_URL=$(echo $JSON | jq -r '.data.file.url.short')
     if match_remote_url "$DL_URL"; then
       echo "$DL_URL"
       return 0
     fi
-
-    ERR=$(parse_json status <<< "$JSON")
-    MSG=$(parse_json msg <<< "$JSON")
+	
+    ERR=$(echo $JSON | jq -r '.status')
+    MSG=$(echo $JSON | jq -r '.error.message')
     log_error "Unexpected status ($ERR): $MSG"
     return $ERR_FATAL
 }
-
-# Probe a download URL
-# $1: cookie file (unused here)
-# $2: bayfiles.com url
-# $3: requested capability list
-# stdout: 1 capability per line
+# Probe a download URL $1: cookie file (unused here) $2: bayfiles.com 
+# url $3: requested capability list stdout: 1 capability per line
 bayfiles_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
     local -r API_URL='https://bayfiles.com/api/v1/'
     local FILE_ID JSON RET REQ_OUT
-
     FILE_ID=$(parse . '/\(.*\)$' <<< "$URL") || return
     JSON=$(curl "${API_URL}info/$FILE_ID") || return
-
     RET=$(parse_json status <<< "$JSON")
     if [ "$RET" -ne 0 ]; then
         return $ERR_LINK_DEAD
     fi
-
     REQ_OUT=c
-
     if [[ $REQ_IN = *f* ]]; then
-        parse_json_quiet 'file_name' <<< "$JSON" && REQ_OUT="${REQ_OUT}f"
+        parse_json_quiet 'file_name' <<< "$JSON" && 
+REQ_OUT="${REQ_OUT}f"
     fi
-
     if [[ $REQ_IN = *s* ]]; then
-        parse_json_quiet 'file_size' <<< "$JSON" && REQ_OUT="${REQ_OUT}s"
+        parse_json_quiet 'file_size' <<< "$JSON" && 
+REQ_OUT="${REQ_OUT}s"
     fi
-
     echo $REQ_OUT
 }
-
