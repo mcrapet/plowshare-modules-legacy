@@ -83,7 +83,7 @@ bayfiles_upload() {
 bayfiles_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
-    local -r API_URL='https://bayfiles.com/api/v1/'
+    local -r API_URL='https://api.bayfiles.com/'
     local FILE_ID JSON RET REQ_OUT
     FILE_ID=$(parse . '/\(.*\)$' <<< "$URL") || return
     JSON=$(curl "${API_URL}info/$FILE_ID") || return
