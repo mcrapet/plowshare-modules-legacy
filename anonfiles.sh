@@ -61,7 +61,7 @@ anonfiles_download() {
 }
 
 # Upload a file to AnonFiles.com
-# Use API: https://anonfiles.com/api/help
+# Use API: https://anonfiles.com/docs/api/
 # $1: cookie file (unused here)
 # $2: input file (with full path)
 # $3: remote filename
@@ -99,7 +99,7 @@ anonfiles_upload() {
 anonfiles_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
-    local -r API_URL='https://anonfiles.com/api/v1/'
+    local -r API_URL='https://api.anonfiles.com/'
     local FILE_ID JSON RET REQ_OUT
 
     FILE_ID=$(parse . '/\(.*\)$' <<< "$URL") || return
