@@ -37,13 +37,13 @@ bayfiles_download() {
 
     FILE_URL=$(curl -L "$URL" | grep -i '>                    <img' | sed -e 's/href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d'| sed 's|                       ||')
 
-    if [ -z "$FILE_URL" ]; then
-        FILE_URL=$(echo "$PAGE" | \
-            parse_attr_quiet 'image_preview' src) || return
-    fi
+#    if [ -z "$FILE_URL" ]; then
+#        FILE_URL=$(echo "$PAGE" | \
+#            parse_attr_quiet 'image_preview' src) || return
+#    fi
 
 
-    FILENAME=$(echo "$PAGE" | parse_tag '<legend' b)
+#    FILENAME=$(echo "$PAGE" | parse_tag '<legend' b)
 
     # Mandatory!
     MODULE_BAYFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(--referer "$URL")
