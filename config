@@ -53,6 +53,7 @@ hexupload       | download |        |        |      | probe |
 hipfile         | download | upload | delete | list | probe |
 hostuje         | download |        |        |      |       |
 hotlink_cc      | download |        |        |      | probe |
+imagenetz_de    | download |        |        |      |       |
 jheberg         |          | upload |        | list | probe |
 keep2share      | download | upload |        |      | probe |
 krakenfiles     | download | upload |        |      | probe |
