@@ -1,5 +1,5 @@
 # Plowshare krakenfiles.com module
-# Copyright (c) 2021-2022 Plowshare team
+# Copyright (c) 2021-2023 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -103,14 +103,16 @@ krakenfiles_upload() {
         return $ERR_SIZE_LIMIT_EXCEEDED
     fi
 
-    CHUNK_SIZE=$(parse . '\s\+maxChunkSize:\s*\([[:digit:]]\+\),' <<< "$PAGE") || return
+    #CHUNK_SIZE=$(parse . '\s\+maxChunkSize:\s*\([[:digit:]]\+\),' <<< "$PAGE") || return
+    CHUNK_SIZE=$(( MAX_SIZE - 1 ))
+
     if [ "$SZ" -lt "$CHUNK_SIZE" ]; then
 
       # {"files":[{"name":"5MiB.bin","size":"5.00 MB","error":"","url":"\/view\/40zFezYgbD\/file.html","hash":"40zFezYgbD"}]}
       JSON=$(curl_with_log -H "Origin: $BASE_URL" \
           --referer "$BASE_URL" \
           -F "files[]=@${FILE};type=application/octet-stream;filename=${DEST_FILE}" \
-          "https:$SERVER") || return
+          "$SERVER") || return
 
     else
       NUM_CHUNKS=$(( (SZ + CHUNK_SIZE - 1) / CHUNK_SIZE ))
@@ -138,7 +140,7 @@ krakenfiles_upload() {
             -H "Content-Range: bytes ${OFFSET_PREV}-${OFFSET}/$SZ" \
             -H "Content-Disposition: attachment; filename=\"$DEST_FILE\"" \
             -F "files[]=@$PART_FILE;filename=\"$DEST_FILE\"" \
-            "https:$SERVER") || return
+            "$SERVER") || return
 
         rm -f "$PART_FILE"
 
