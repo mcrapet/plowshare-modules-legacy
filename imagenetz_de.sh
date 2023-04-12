@@ -35,6 +35,13 @@ imagenetz_de_download() {
 
     PAGE=$(curl -L -c "$COOKIEFILE" "$URL") || return
 
+    # Database-connection failed
+    # please use the correct data for your database.
+    if match '>Database-connection failed<' "$PAGE"; then
+      log_error 'Website seems temporarily broken. Come back later!'
+      return $ERR_NETWORK
+    fi
+
     # Get wait time
     # <span class='dwnin'>Download in <span id='dlCD'><span>5</span></span> Sekunden</span>
     WAIT_TIME=$(parse_quiet 'dlCD' 'dlCD.><span>\([[:digit:]]\+\)</span>' <<< "$PAGE")
