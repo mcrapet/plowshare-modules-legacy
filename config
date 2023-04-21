@@ -17,6 +17,7 @@ crocko          | download | upload |        | list | probe |
 data_hu         | download | upload | delete |      |       |
 datafile        | download |        |        |      | probe |
 dataport_cz     | download | upload | delete |      |       |
+dbree_org       | download |        |        |      |       |
 depositfiles    | download | upload | delete | list | probe |
 directmirror    |          | upload |        | list |       |
 divshare        | download | upload | delete | list | probe |
