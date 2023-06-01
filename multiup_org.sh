@@ -146,7 +146,10 @@ multiup_org_list() {
 
     rm -f "$COOKIE_FILE"
 
-    LINKS=$(parse_all_quiet 'dateLastChecked=' 'link=.\([^"]*\)' <<< "$PAGE")
+    LINKS_CAMELCASE=$(parse_all_quiet 'dateLastChecked=' 'link=.\([^"]*\)' <<< "$PAGE")
+    LINKS_UPPERCASE=$(parse_all_quiet 'datelastchecked=' 'link=.\([^"]*\)' <<< "$PAGE")
+    # Concatenate together the links results
+    LINKS="$LINKS_CAMELCASE$LINKS_UPPERCASE"
     if [ -z "$LINKS" ]; then
         # <h3>File currently uploading ...</h3>
         if match '>File currently uploading \.\.\.<' "$PAGE"; then
@@ -159,7 +162,10 @@ multiup_org_list() {
         fi
     fi
 
-    NAMES=$(parse_all_quiet 'dateLastChecked=' 'nameHost=.\([^"]*\)' <<< "$PAGE")
+    NAMES_CAMELCASE=$(parse_all_quiet 'dateLastChecked=' 'nameHost=.\([^"]*\)' <<< "$PAGE")
+    NAMES_UPPERCASE=$(parse_all_quiet 'datelastchecked=' 'nameHost=.\([^"]*\)' <<< "$PAGE")
+    # Concatenate together the names results
+    NAMES="$NAMES_CAMELCASE$NAMES_UPPERCASE"
 
     list_submit "$LINKS" "$NAMES" || return
 }
