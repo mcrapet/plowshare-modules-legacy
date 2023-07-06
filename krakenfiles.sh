@@ -60,7 +60,7 @@ krakenfiles_download() {
         -H "hash: $HASH" \
         --referer "$URL" \
         -F "token=$FORM_TOKEN" \
-        "$BASE_URL$FORM_ACTION") || return
+        "https:$FORM_ACTION") || return
 
     # {"status":"ok","url":"https:\/\/s3.krakenfiles.com\/force-download\/..."}
 
