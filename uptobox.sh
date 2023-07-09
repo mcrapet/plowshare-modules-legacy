@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_UPTOBOX_REGEXP_URL='https\?://\(www\.\)\?uptobox\.com/'
+MODULE_UPTOBOX_REGEXP_URL='https\?://\(www\.\)\?uptobox\.eu/'
 
 MODULE_UPTOBOX_DOWNLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account"
@@ -86,12 +86,12 @@ uptobox_cloudflare() {
 uptobox_download() {
     local -r COOKIE_FILE=$1
     local -r URL=$(replace '://www.' '://' <<< "$2" | replace 'http:' 'https:')
-    local -r BASE_URL='http://uptobox.com'
+    local -r BASE_URL='http://uptobox.eu'
     local PAGE WAIT_TIME CODE PREMIUM CAPTCHA_DATA CAPTCHA_ID
     local FORM_HTML FORM_OP FORM_ID FORM_RAND FORM_METHOD FORM_DD FORM_SZ FORM_WAITINGTOKEN
 
     if [ -n "$AUTH" ]; then
-        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.com' || return
+        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.eu' || return
 
         # Distinguish acount type (free or premium)
         PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/?op=my_account") || return
@@ -255,14 +255,14 @@ uptobox_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='https://uptobox.com'
+    local -r BASE_URL='https://uptobox.eu'
 
     local PAGE URL UPLOAD_ID USER_TYPE DL_URL DEL_URL
     local FORM_HTML FORM_ACTION FORM_UTYPE FORM_TMP_SRV FORM_BUTTON FORM_SESS
     local FORM_FN FORM_ST FORM_OP
 
     if [ -n "$AUTH" ]; then
-        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.com' || return
+        uptobox_login "$AUTH" "$COOKIE_FILE" 'https://uptobox.eu' || return
     fi
 
     PAGE=$(curl -L -b "$COOKIE_FILE" -b 'lang=english' "$BASE_URL") || return
