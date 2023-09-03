@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_ANONFILES_REGEXP_URL='https\?://\([[:alnum:]]\+\.\)\?anonfiles\.com/'
+MODULE_ANONFILES_REGEXP_URL='https\?://\?anonfiles\.com/'
 
 MODULE_ANONFILES_DOWNLOAD_OPTIONS=""
 MODULE_ANONFILES_DOWNLOAD_RESUME=yes
@@ -43,15 +43,15 @@ anonfiles_download() {
         return $ERR_LINK_DEAD
     fi
 
-    FILE_URL=$(echo "$PAGE" | parse_attr_quiet 'download_button' href)
+    FILE_URL=$(curl -L "$URL" | grep -i '>                    <img' | sed -e 's/href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d'| sed 's|                       ||')
 
-    if [ -z "$FILE_URL" ]; then
-        FILE_URL=$(echo "$PAGE" | \
-            parse_attr_quiet 'image_preview' src) || return
-    fi
+#    if [ -z "$FILE_URL" ]; then
+#        FILE_URL=$(echo "$PAGE" | \
+#            parse_attr_quiet 'image_preview' src) || return
+#    fi
 
 
-    FILENAME=$(echo "$PAGE" | parse_tag '<legend' b)
+#    FILENAME=$(echo "$PAGE" | parse_tag '<legend' b)
 
     # Mandatory!
     MODULE_ANONFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(--referer "$URL")
@@ -61,7 +61,7 @@ anonfiles_download() {
 }
 
 # Upload a file to AnonFiles.com
-# Use API: https://anonfiles.com/api/help
+# Use API: https://anonfiles.com/docs/api/
 # $1: cookie file (unused here)
 # $2: input file (with full path)
 # $3: remote filename
@@ -69,7 +69,7 @@ anonfiles_download() {
 anonfiles_upload() {
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r API_URL='https://anonfiles.com/api/v1/'
+    local -r API_URL='https://api.anonfiles.com/'
     local JSON DL_URL ERR MSG
 
     # Note1: Accepted file types is very restrictive! According to site: jpg, jpeg, gif, png, pdf,
@@ -79,14 +79,14 @@ anonfiles_upload() {
     JSON=$(curl_with_log \
         -F "file=@$FILE;filename=$DESTFILE" "${API_URL}upload") || return
 
-    DL_URL=$(parse_json_quiet url <<< "$JSON")
+    DL_URL=$(echo $JSON | jq -r '.data.file.url.short')
     if match_remote_url "$DL_URL"; then
       echo "$DL_URL"
       return 0
     fi
 
-    ERR=$(parse_json status <<< "$JSON")
-    MSG=$(parse_json msg <<< "$JSON")
+    ERR=$(echo $JSON | jq -r '.status')
+    MSG=$(echo $JSON | jq -r '.error.message')
     log_error "Unexpected status ($ERR): $MSG"
     return $ERR_FATAL
 }
@@ -99,7 +99,7 @@ anonfiles_upload() {
 anonfiles_probe() {
     local -r URL=$2
     local -r REQ_IN=$3
-    local -r API_URL='https://anonfiles.com/api/v1/'
+    local -r API_URL='https://api.anonfiles.com/'
     local FILE_ID JSON RET REQ_OUT
 
     FILE_ID=$(parse . '/\(.*\)$' <<< "$URL") || return
