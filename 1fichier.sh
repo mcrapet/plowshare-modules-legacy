@@ -292,8 +292,16 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r UPLOADURL='https://upload.1fichier.com'
     local LOGIN_DATA S_ID RESPONSE DOWNLOAD_ID REMOVE_ID DOMAIN_ID DIR_ID
+
+    # 'jq' version
+    # UPLOADURL=$(curl -s -H "Content-Type: application/json" -X POST https://api.1fichier.com/v1/upload/get_upload_server.cgi | jq -r '.url')
+    UPLOADURL=$(curl -s -H "Content-Type: application/json" -X POST https://api.1fichier.com/v1/upload/get_upload_server.cgi | grep -oP '"url":\s*"\K[^"]*' | head -n1)
+
+    if [ -z "$UPLOADURL" ]; then
+        log_error "Error getting the node from the load server."
+        return $ERR_FATAL
+    fi
 
     if CV=$(storage_get 'cookie_file'); then
         echo "$CV" >"$COOKIE_FILE"
