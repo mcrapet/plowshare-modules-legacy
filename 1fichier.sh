@@ -292,8 +292,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r UPLOADURL='https://upload.1fichier.com'
-    local LOGIN_DATA S_ID RESPONSE DOWNLOAD_ID REMOVE_ID DOMAIN_ID DIR_ID
+    local LOGIN_DATA S_ID RESPONSE DOWNLOAD_ID REMOVE_ID DOMAIN_ID DIR_ID JSON UPLOADURL
 
     if CV=$(storage_get 'cookie_file'); then
         echo "$CV" >"$COOKIE_FILE"
@@ -326,7 +325,25 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         fi
     fi
 
-    S_ID=$(random ll 10)
+    # Grab upload server
+    JSON=$(curl -X POST \
+        -H "Content-Type: application/json" \
+        'https://api.1fichier.com/v1/upload/get_upload_server.cgi')
+
+    UPLOADURL='https://'$(parse_json 'url' <<< "$JSON")
+    S_ID=$(parse_json 'id' <<< "$JSON")
+
+    log_debug "Upload: $UPLOADURL"
+    if [ -z "$UPLOADURL" ]; then
+        log_error "Cannot get upload server, fallback to default"
+        UPLOADURL='https://up2.1fichier.com'
+    fi
+
+    log_debug "Id: $S_ID"
+    if [ -z "$S_ID" ]; then
+        log_error "Cannot get internal id, fallback to a random one"
+        S_ID=$(random ll 10)
+    fi
 
     RESPONSE=$(curl_with_log -b "$COOKIE_FILE" \
         --form-string "message=$MESSAGE" \
@@ -335,6 +352,7 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
         -F "domain=${DOMAIN:-0}" \
         -F "file[]=@$FILE;filename=$DESTFILE" \
         -F "did=$DIR_ID" \
+        -F 'ssl_on=on' \
         "$UPLOADURL/upload.cgi?id=$S_ID") || return
 
     RESPONSE=$(curl --header 'EXPORT:1' -b "$COOKIE_FILE" \
