@@ -203,6 +203,12 @@ MODULE_1FICHIER_PROBE_OPTIONS=""
     # Authenticated download with forced menu
     FILE_URL=$(grep_http_header_location_quiet <<< "$PAGE")
 
+    # Deny the use of the premium on prefessional services
+    if match 'Premium status must not be used on professional services (VPN, proxies, ...)' "$PAGE" ; then
+        log_error 'Premium status must not be used on prefessional services (VPN, proxies, ...).'
+        return $ERR_FATAL
+    fi
+
     # Click here to download the file
     if [ -z "$FILE_URL" ]; then
         FILE_URL=$(parse 'class="ok btn-general btn-orange"' '<a href="\(.*\)"  style' <<< "$PAGE")
