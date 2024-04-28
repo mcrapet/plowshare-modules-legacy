@@ -1,5 +1,5 @@
 # Plowshare krakenfiles.com module
-# Copyright (c) 2021-2023 Plowshare team
+# Copyright (c) 2021-2024 Plowshare team
 #
 # This file is part of Plowshare.
 #
@@ -60,7 +60,7 @@ krakenfiles_download() {
         -H "hash: $HASH" \
         --referer "$URL" \
         -F "token=$FORM_TOKEN" \
-        "https:$FORM_ACTION") || return
+        "$BASE_URL$FORM_ACTION") || return
 
     # {"status":"ok","url":"https:\/\/s3.krakenfiles.com\/force-download\/..."}
 
@@ -74,7 +74,7 @@ krakenfiles_download() {
     MODULE_KRAKENFILES_DOWNLOAD_FINAL_LINK_NEEDS_EXTRA=(--referer "$URL")
 
     echo $JSON | parse_json url || return
-    echo "$PAGE" | parse_attr '=.og:title.' content
+    parse_attr '=.og:title.' content <<< "$PAGE"
 }
 
 # Upload a file to KrakenFiles.com
