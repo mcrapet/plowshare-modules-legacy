@@ -90,7 +90,9 @@ krakenfiles_upload() {
     local PAGE SERVER MAX_SIZE CHUNK_SIZE JSON JSON2 FILE_URL STATUS
     local NUM_CHUNKS CHUNK OFFSET OFFSET_PREV TMP_FILE PART_FILE
 
-    PAGE=$(curl "$BASE_URL") || return
+    # Fix bad server behavior
+    # https://github.com/curl/curl/issues/5200
+    PAGE=$(curl --no-compressed "$BASE_URL")
 
     SERVER=$(parse '\s\+url:\s*"' ':\s*"\([^"]*\)"' <<< "$PAGE") || return
     log_debug "Upload server $SERVER"
